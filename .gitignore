@@ -1,0 +1,54 @@
+# Clean-Room Asset Protection (Zero Copyrighted Assets)
+*.nes
+*.NES
+*.fds
+*.FDS
+*.bin
+*.rom
+*.sav
+
+# Disassembly Reference Dumps (Clean-Room Boundary)
+nes-contra-us/
+*disasm*/
+disasm/
+
+# Extracted Asset & Cache Dumps
+extracted/
+nes_data/
+assets_cache/
+*.chr
+*.prg
+
+# Build Artifacts & Output
+build/
+cmake-build-*/
+out/
+bin/
+lib/
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Replay & Test Outputs
+*.replay.log
+*.ppm
+*.png.dump
+test_output/
+
+# IDE & Editor Metadata
+.vscode/
+.idea/
+.zed/
+.obsidian/
+compile_commands.json
+.cache/
+
+# System & OS Files
+.DS_Store
+Thumbs.db
+*.tmp
+*~
+*.swp
