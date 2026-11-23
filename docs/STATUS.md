@@ -4,11 +4,11 @@
 
 ---
 
-## 1. Current Phase: Phase 0 — Clean Foundation & Architecture Initialization
+## 1. Current Phase: Phase 2 — PPU 256x240 Renderer & OAM Sprite Engine
 
-- **Phase Objective**: Initialize repository structure, verify Contra disassembly symbols, configure build system, and establish headless test harness.
-- **Current Milestone**: Phase 0.1 — Clean-Room Documentation & Architecture Baseline (COMPLETED).
-- **Status**: Ready for Phase 0.2 (CMake & SDL3 Skeleton).
+- **Phase Objective**: Implement 256x240 software framebuffer renderer, background nametable decoding, scrolling engine, and 8x16 OAM sprite engine.
+- **Current Milestone**: Phase 2.1 — Framebuffer & Nametable Renderer (READY).
+- **Status**: Phase 0 (Build & Harness) and Phase 1 (ROM Loader & CHR RLE Decompressor) COMPLETED & 100% CTest Verified.
 
 ---
 
@@ -18,20 +18,20 @@
 - [x] Inspect local Contra `.nes` ROM (`Contra (USA).nes`) and ca65 disassembly (`nes-contra-us/`).
 - [x] Establish clean-room legal boundary and `.gitignore`.
 - [x] Deploy foundational documentation: `AGENTS.md`, `docs/ARCHITECTURE.md`, `docs/STATUS.md`, and `docs/MEMORY.md`.
-- [ ] Configure `CMakeLists.txt` with C23/C++20, SDL3 integration, `-Wall -Wextra -Werror`, and Sandy Bridge AVX-only support (`-mno-avx2`).
-- [ ] Implement headless CLI test harness (`--headless`, `--frames`, `--replay`, `--verify-hash`).
+- [x] Configure `CMakeLists.txt` with C23/C++20, SDL3 integration, `-Wall -Wextra -Werror`, and Sandy Bridge AVX-only support (`-mno-avx2`).
+- [x] Implement headless CLI test harness (`--headless`, `--frames`, `--replay`, `--verify-hash`).
 
 ### Phase 1: ROM Loader & CHR RLE Decompressor (`src/rom/`)
-- [ ] Implement iNES header validator and SHA-256 / CRC32 checksum verifier for authentic Contra ROM.
-- [ ] Implement UNROM (Mapper 2) PRG bank reader (Banks 0–7, 16KB switchable + 16KB fixed).
-- [ ] Implement RLE decompression engine (`write_graphic_data_to_ppu`) matching disassembly algorithm:
+- [x] Implement iNES header validator and SHA-256 / CRC32 checksum verifier for authentic Contra ROM.
+- [x] Implement UNROM (Mapper 2) PRG bank reader (Banks 0–7, 16KB switchable + 16KB fixed).
+- [x] Implement RLE decompression engine (`write_graphic_data_to_ppu`) matching disassembly algorithm:
   - Command `$FF` (End of stream).
   - Command `$7F` (PPU address update).
   - Run-length repetition (`< $7F`).
   - Literal byte stream (`> $7F`).
   - Horizontal flipping support for indoor corridor tiles.
-- [ ] Extract level palettes (`PALETTE_CPU_BUFFER` `$07C0`–`$07DF`) and supertile definitions.
-- [ ] Automated headless test verifying 100% byte-accurate tile extraction against disassembly references.
+- [x] Extract level palettes (`PALETTE_CPU_BUFFER` `$07C0`–`$07DF`) and supertile definitions.
+- [x] Automated headless test verifying 100% byte-accurate tile extraction against disassembly references.
 
 ### Phase 2: PPU 256x240 Renderer & OAM Sprite Engine (`src/render/`)
 - [ ] Implement 256x240 32-bit RGBA native framebuffer.
@@ -116,4 +116,5 @@
 ---
 
 ## 3. Session Change Log
+- **2026-11-23**: Completed Phase 0 & Phase 1: implemented CMake build system, C23 crypto primitives (SHA-256, CRC-32), UNROM Mapper 2 ROM loader, Bank 7 dynamic RLE CHR tile decompressor, Bank 2/3 level header and supertile parsers, 2C02 NTSC RGBA palette mapping, headless CLI deterministic test harness, and 100% passing automated unit test suite.
 - **2026-11-22**: Initialized clean-room project documentation foundation tailored to `nes-contra-us` disassembly symbols, RAM addresses, UNROM bank layouts, and SDL3 architecture.

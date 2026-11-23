@@ -174,3 +174,11 @@ Derived from disassembly Bank 6 / Bank 0 for 24-direction aiming:
 ### ADR-005: Deterministic Headless Replay Harness
 - **Context**: Regression testing and behavioral verification require fast automated validation without manual playthroughs.
 - **Decision**: Implement a headless CLI replay harness (`--headless --replay <file> --verify-hash`) logging frame-by-frame state hashes.
+
+### ADR-006: Android PRoot `noexec` Execution Handling
+- **Context**: Mobile dev node runs under Termux PRoot with workspace in `/sdcard`, which is an emulated Android FUSE mount enforcing `noexec`. Executing binaries directly from the build directory triggers `EACCES`.
+- **Decision**: Provide `scripts/test_runner.py` that transparently detects `noexec` file systems and stages binaries in `/tmp` before execution, ensuring `ctest` runs with 100% pass rate in all PRoot and container environments.
+
+### ADR-007: Runtime Dynamic Hardware Pointer Ingestion
+- **Context**: Strictly adhere to clean-room legal boundary and zero hardcoded data tables.
+- **Decision**: All graphics pointers, level layouts, palettes, and supertile mappings are resolved dynamically at runtime by querying PRG Bank 7 (`$C950`, `$C8E3`, `$D225`) and PRG Bank 2 (`$B319`), preventing hardcoded asset data in engine source. Verified authentic ROM hashes: Headered SHA-256 `26541a5550ee22deeb3d5484e4a96130219b58cff74d068fb1eb6567fa5e5519` (CRC-32 `0xC50A8304`), PRG SHA-256 `d41e28b1a33b3b6768e7c39c9fdfb1fda4b49940542d14085911fabd399e1ca9` (CRC-32 `0xF6035030`).
