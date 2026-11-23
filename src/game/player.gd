@@ -1,7 +1,7 @@
 class_name Player
 extends RefCounted
 
-const CollisionGridScript = preload("res://scripts/game/collision.gd")
+const CollisionGridScript = preload("res://src/game/collision.gd")
 
 ## Generic NES Contra Player State Machine & Kinematics
 ## Emulates 8-direction aiming, running, ducking, parabolic jump (-5.9375 impulse, +0.1367 gravity),

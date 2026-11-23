@@ -1,7 +1,7 @@
 class_name PpuRenderer
 extends RefCounted
 
-const LevelLoaderScript = preload("res://scripts/rom/level_loader.gd")
+const LevelLoaderScript = preload("res://src/rom/level_loader.gd")
 
 ## Generic 2C02 PPU Software Framebuffer & 8x16 OAM Sprite Engine
 ## Outputs a 256x240 RGBA8 framebuffer convertible to Godot Image / ImageTexture.

@@ -318,3 +318,22 @@ Direction Codes:
   4. Implemented generic `GameLoop` (`scripts/game/game_loop.gd`) coordinating fixed 60.0988 Hz ticks, dual-nametable horizontal camera scrolling, PPU frame submission, and 32-bit FNV-1a `get_state_hash()`.
   5. Implemented `scenes/main.tscn` and `scripts/main.gd` with integer-scaled 256x240 viewport presentation, 48 kHz stereo audio feeding `AudioStreamGeneratorPlayback`, multi-input arbitration (keyboard, gamepad, touch buttons), and `FileDialog` fallback.
   6. Verified bit-for-bit deterministic simulation state hash across 180 frames (`0x811C9DC5`) and zero regressions across all 187 test assertions in `scripts/tests/run_headless_tests.gd`.
+
+### ADR-021: Clean-Room Repository Modular Reorganization (src/ & tests/)
+- **Context**: As the project transitioned from initial migration into full gameplay implementation, maintaining clean separation between application source code and automated verification suites required standardizing on Godot engine architectural conventions (`src/` for game domains, scenes, and entry scripts; `tests/` for modular headless test suites).
+- **Decision**:
+  1. Restructured application codebase under `src/`:
+     - `src/main.tscn` & `src/main.gd`: Root presentation and input arbitration scene.
+     - `src/rom/`: `rom_loader.gd`, `chr_extractor.gd`, `level_loader.gd`.
+     - `src/render/`: `ppu_renderer.gd`.
+     - `src/audio/`: `apu_synthesizer.gd`, `sound_engine.gd`.
+     - `src/game/`: `collision.gd`, `player.gd`, `weapons.gd`, `game_loop.gd`.
+  2. Partitioned monolithic test harness into 6 focused test modules under `tests/`:
+     - `test_rom_loader.gd`: UNROM Mapper 2, iNES header, CPU bus translation (30 assertions).
+     - `test_chr_extractor.gd`: RLE pattern table decompressor, horizontal flip bit reversal (16 assertions).
+     - `test_level_loader.gd`: 32-byte headers, supertiles, palettes, screen RLE (70 assertions).
+     - `test_ppu_renderer.gd`: 2C02 software framebuffer, scrolling, and OAM sprites (17 assertions).
+     - `test_apu_sound.gd`: Ricoh 2A03 5 channels, DPCM playback, BGM/SFX sequencer (23 assertions).
+     - `test_gameplay_simulation.gd`: Collision grid, kinematics, bullet pool, and replay (31 assertions).
+  3. Created unified test harness `tests/run_headless_tests.gd` (and alias `tests/run_tests.gd`) discovering user ROMs, executing all 6 suites sequentially, and exiting with exit code 0 on complete pass.
+  4. Updated `project.godot` (`run/main_scene="res://src/main.tscn"`), all `res://` preload references, and Markdown documentation (`AGENTS.md`, `README.md`, `docs/ARCHITECTURE.md`, `docs/STATUS.md`, `docs/MEMORY.md`).

@@ -40,8 +40,10 @@ ReContra/
 ├── docs/
 │   ├── ARCHITECTURE.md               # Technical architecture & subsystem design
 │   ├── STATUS.md                     # Roadmap, sprint milestones, & verification checklist
-│   └── MEMORY.md                     # Architectural decision records (ADR-001..ADR-019) & NES RAM map
-├── scripts/
+│   └── MEMORY.md                     # Architectural decision records (ADR-001..ADR-021) & NES RAM map
+├── src/
+│   ├── main.tscn                     # Main game scene (TextureRect, AudioStreamPlayer, TouchControls, FileDialog)
+│   ├── main.gd                       # Main scene runner & input orchestrator
 │   ├── rom/
 │   │   ├── rom_loader.gd             # iNES header validator & UNROM Mapper 2 memory bus mapper
 │   │   ├── chr_extractor.gd          # RLE CHR pattern table decompressor & bit reversal
@@ -51,10 +53,20 @@ ReContra/
 │   ├── audio/
 │   │   ├── apu_synthesizer.gd        # 2A03 APU 5-channel synthesizer & non-linear mixer
 │   │   └── sound_engine.gd           # 6-slot audio command engine & bytecode sequencer
-│   ├── game/                         # Physics, player state machine, weapons, & enemies
-│   └── tests/
-│       └── run_headless_tests.gd     # 156-assertion headless verification suite
-└── scenes/                           # Godot scenes
+│   └── game/
+│       ├── collision.gd              # 128-byte background collision grid ($0680-$06FF)
+│       ├── player.gd                 # Player kinematics, 8-direction aim table, & Bank 1 OAM frames
+│       ├── weapons.gd                # 16-slot bullet pool & Bank 6 ballistics tables
+│       └── game_loop.gd              # 60.0988 Hz fixed-timestep coordinator & camera scroller
+└── tests/
+    ├── run_headless_tests.gd         # Unified headless test suite runner (187 assertions)
+    ├── run_tests.gd                  # Alias test runner
+    ├── test_rom_loader.gd            # Part 1: ROM loader & UNROM Mapper 2 tests (30 assertions)
+    ├── test_chr_extractor.gd         # Part 2: CHR pattern table decompressor tests (16 assertions)
+    ├── test_level_loader.gd          # Part 3: Level headers, supertiles & palettes tests (70 assertions)
+    ├── test_ppu_renderer.gd          # Part 4: 2C02 PPU software framebuffer & OAM tests (17 assertions)
+    ├── test_apu_sound.gd             # Part 5: Ricoh 2A03 APU & sound engine tests (23 assertions)
+    └── test_gameplay_simulation.gd   # Part 6: Physics, bullet pool & replay tests (31 assertions)
 ```
 
 ---
@@ -64,10 +76,10 @@ ReContra/
 ```fish
 # 1. Run Headless Verification Test Suite
 set -gx GODOT_SILENCE_ROOT_WARNING 1
-godot --headless --script scripts/tests/run_headless_tests.gd
+godot --headless --script tests/run_headless_tests.gd
 
 # 2. Run Headless Verification with Explicit ROM Path
-godot --headless --script scripts/tests/run_headless_tests.gd --rom /path/to/Contra.nes
+godot --headless --script tests/run_headless_tests.gd --rom /path/to/Contra.nes
 
 # 3. Launch Interactive Game (Development / GUI)
 godot --path .

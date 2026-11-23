@@ -13,7 +13,7 @@
 |                            Contra Godot 4 Architecture                            |
 |                                                                                   |
 |  +--------------------+      SHA-256 Check      +------------------------------+  |
-|  | User Contra.nes    | ----------------------> | RomLoader (scripts/rom/)     |  |
+|  | User Contra.nes    | ----------------------> | RomLoader (src/rom/)         |  |
 |  | (128KB PRG, UNROM) |                         | (Banks 0-7, Bus Translation) |  |
 |  +--------------------+                         +--------------+---------------+  |
 |                                                                |                  |
@@ -27,7 +27,7 @@
 |             +------------------------+-------------------------+                  |
 |                                      v                                            |
 |  +-----------------------------------------------------------------------------+  |
-|  |                           Game Engine Core (scripts/game/)                  |  |
+|  |                           Game Engine Core (src/game/)                      |  |
 |  |  +---------------------+  +----------------------+  +--------------------+  |  |
 |  |  | 60Hz State Machine  |  | Fixed-Point Physics  |  | Weapon & Bullet    |  |  |
 |  |  | (GAME_ROUTINE $18)  |  | (Fast+Fract Accums)  |  | Pool (16 slots)    |  |  |
@@ -44,7 +44,7 @@
 |            |                                                       |              |
 |            v                                                       v              |
 |  +-----------------------------+               +-------------------------------+  |
-|  | PpuRenderer (scripts/render)|               | ApuSynthesizer & SoundEngine  |  |
+|  | PpuRenderer (src/render)    |               | ApuSynthesizer & SoundEngine  |  |
 |  | (256x240 Software Framebuf, |               | (2A03 5-Ch + DPCM, 6 Slots,   |  |
 |  |  OAM $4C Scanline Cycling,  |               |  Non-Linear Mixer & Filter,   |  |
 |  |  Godot Image/ImageTexture)  |               |  AudioStreamGenerator Output) |  |
@@ -62,9 +62,9 @@
 
 ---
 
-## 2. ROM Loader & Asset Ingestion (`scripts/rom/`)
+## 2. ROM Loader & Asset Ingestion (`src/rom/`)
 
-### 2.1 iNES & UNROM Mapper 2 Architecture (`scripts/rom/rom_loader.gd`)
+### 2.1 iNES & UNROM Mapper 2 Architecture (`src/rom/rom_loader.gd`)
 Contra uses the NES **UNROM (Mapper 2)** board:
 - **PRG ROM**: 128 KB (8 banks of 16 KB, `$4000` bytes each).
   - Banks 0–6 are switchable into CPU `$8000`–`$BFFF` via mapper writes.
@@ -74,7 +74,7 @@ Contra uses the NES **UNROM (Mapper 2)** board:
 - **Mirroring**: Solder-pad configured for Vertical mirroring (Horizontal scrolling). Bank 7 software routines dynamically handle horizontal mirroring attributes for Stage 3 (Waterfall).
 - **Cryptographic Guard**: On load, validates the ROM via SHA-256 (`8a6496924d54da80b72448ca33faec2c4a04d5ff645e54c8feefab7593c2a32c`) and CRC32 (`0x34EE3A27`).
 
-### 2.2 Dynamic RLE CHR Extractor (`scripts/rom/chr_extractor.gd`)
+### 2.2 Dynamic RLE CHR Extractor (`src/rom/chr_extractor.gd`)
 Pattern graphics are compressed across Banks 4, 5, 6, and 7, referenced by pointer tables at `$C950` (27 graphic stream descriptors) and `$C8E3` (13 stage graphic sets):
 - **Format**:
   - Command byte `$FF`: End of graphic data stream.
@@ -83,7 +83,7 @@ Pattern graphics are compressed across Banks 4, 5, 6, and 7, referenced by point
   - Byte `> $7F` (bit 7 set): Literal uncompressed byte stream (count = `byte & 0x7F`, followed by `count` data bytes).
 - **Horizontal Flipping Support**: When loaded with flipping enabled, tiles are reversed bitwise across the horizontal axis (`reverse_bits_u8`) for mirrored base/indoor corridor tiles.
 
-### 2.3 Level Loader & Supertiles (`scripts/rom/level_loader.gd`)
+### 2.3 Level Loader & Supertiles (`src/rom/level_loader.gd`)
 - **Headers**: 32-byte Level Headers in Bank 2 (`$B319`), specifying level type, scrolling mode, palette pointers, and supertile mappings.
 - **Supertiles**: Bank 3 defines 4x4 tile matrices (32x32 pixels) along with tile palette attributes.
 - **Palettes**: Bank 7 (`$D225`) contains 110 3-color palette sets converted to 2C02 NTSC master palette RGBA8 format.
@@ -91,9 +91,9 @@ Pattern graphics are compressed across Banks 4, 5, 6, and 7, referenced by point
 
 ---
 
-## 3. PPU & Visual Rendering Subsystem (`scripts/render/`)
+## 3. PPU & Visual Rendering Subsystem (`src/render/`)
 
-### 3.1 Display Geometry & Framebuffer (`scripts/render/ppu_renderer.gd`)
+### 3.1 Display Geometry & Framebuffer (`src/render/ppu_renderer.gd`)
 - **Internal Resolution**: 256 x 240 pixels (8x8 pixel tiles, 32 x 30 tile matrix).
 - **Framebuffer Format**: 32-bit RGBA8 `PackedByteArray` (245,760 bytes).
 - **Aspect Ratio & Scaling**: Configured in `project.godot` with `window/stretch/mode="viewport"`, integer scaling (`window/stretch/scale_mode="integer"`), and nearest-neighbor texture filtering (`rendering/textures/canvas_textures/default_texture_filter=0`).
@@ -117,9 +117,9 @@ Pattern graphics are compressed across Banks 4, 5, 6, and 7, referenced by point
 
 ---
 
-## 4. APU Audio Subsystem (`scripts/audio/`)
+## 4. APU Audio Subsystem (`src/audio/`)
 
-### 4.1 Ricoh 2A03 Emulation (`scripts/audio/apu_synthesizer.gd`)
+### 4.1 Ricoh 2A03 Emulation (`src/audio/apu_synthesizer.gd`)
 - **Channels**:
   1. **Pulse 1**: Variable duty cycle (12.5%, 25%, 50%, 75%), volume envelope, hardware pitch sweep with authentic 1's complement negation quirk.
   2. **Pulse 2**: Companion square wave for harmonies and SFX with 2's complement negation.
@@ -129,7 +129,7 @@ Pattern graphics are compressed across Banks 4, 5, 6, and 7, referenced by point
 - **Non-Linear NES Mixer**: Authentic non-linear curve for Pulse and TND channels followed by first-order high-pass DC-blocking filter.
 - **Audio Output**: Streams 48,000 Hz stereo `PackedVector2Array` frames into Godot's `AudioStreamGenerator`.
 
-### 4.2 Contra 6-Slot Audio Command Architecture (`scripts/audio/sound_engine.gd`)
+### 4.2 Contra 6-Slot Audio Command Architecture (`src/audio/sound_engine.gd`)
 - **Slot Allocation**:
   - Slot 0: BGM Pulse 1
   - Slot 1: BGM Pulse 2
@@ -143,9 +143,9 @@ Pattern graphics are compressed across Banks 4, 5, 6, and 7, referenced by point
 
 ---
 
-## 5. Game Engine Core (`scripts/game/`)
+## 5. Game Engine Core (`src/game/`)
 
-### 5.1 Deterministic State Machine
+### 5.1 Deterministic State Machine (`src/game/game_loop.gd`)
 Driven by `GAME_ROUTINE_INDEX` (`$18`):
 - `0x00`: `game_routine_00` — Zero nametables, load intro graphics and palettes.
 - `0x01`: `game_routine_01` — Logo scroll, menu cursor, Konami code check.
@@ -155,7 +155,7 @@ Driven by `GAME_ROUTINE_INDEX` (`$18`):
 - `0x05`: `game_routine_05` — Active gameplay execution across 10 level sub-routines.
 - `0x06`: `game_routine_06` — Game ending sequence and helicopter escape.
 
-### 5.2 Physics & Mechanics
+### 5.2 Physics & Mechanics (`src/game/player.gd`)
 - **Fixed-Point Motion**:
   ```gdscript
   func update_subpixel_pos(pos: int, accum: int, fract: int, fast: int) -> Array[int]:
@@ -165,27 +165,39 @@ Driven by `GAME_ROUTINE_INDEX` (`$18`):
       return [new_pos, new_accum]
   ```
 - **Player States (`PLAYER_STATE` `$90`)**:
-  - Idle, Running, Ducking/Prone, Jumping (parabolic arc via `PLAYER_JUMP_COEFFICIENT`, `-5.9375` px/frame initial impulse, `+0.1367` px/frame^2 gravity), Swimming (water line clipping via `PLAYER_WATER_STATE`), Hit/Death recoil.
-- **Weapon System**:
-  - Standard (Rifle): 1 pellet on screen, fast straight.
-  - `M` (Machine Gun): Rapid continuous stream.
-  - `F` (Fireball): Swirling spiral trajectory using offset tables `f_bullet_outdoor_x/y_swirl_amt_tbl`.
-  - `S` (Spread Gun): 5 bullets fanning out across 5 angles.
-  - `L` (Laser): 4 connected beam segments moving in unison.
-  - `R` (Rapid): Reduces delay between shots.
-  - `B` (Barrier): Invincibility timer (`$B0`) with flashing palette cycling.
+  - Idle, Running, Ducking/Prone, Jumping (parabolic arc via initial impulse `-5.9375` px/frame, `+0.1367` px/frame^2 gravity), Swimming (surface swim, submerged dive), Hit/Death recoil.
+- **Weapon System (`src/game/weapons.gd`)**:
+  - Standard (Rifle): 4 slot quota, 3 px/frame velocity.
+  - `M` (Machine Gun): Continuous auto-fire governed by `m_fire_timer`.
+  - `F` (Fireball): Swirling spiral trajectory using offset tables `$BADE`/`$BAE2`.
+  - `S` (Spread Gun): 5 bullets fanning out across 5 angles with distance-based sprite scaling.
+  - `L` (Laser): 4 sequential segments with staggered activation delays.
+  - `R` (Rapid): Ballistic velocity upgrade modifier.
+  - `B` (Barrier): Invincibility state timer (`$B0`).
 
-### 5.3 Pools & Collision Detection
+### 5.3 Pools & Collision Detection (`src/game/collision.gd`)
 - **Player Bullet Pool**: 16 dedicated slots (`$0368`–`$04B7`).
 - **Enemy Object Pool**: 16 dedicated slots (`$04B8`–`$05F7`).
-- **Collision Grid**: Supertile collision map (`BG_COLLISION_DATA` `$0680`–`$06FF`) evaluated every other tile. Floor drop-down executed with Down + Jump (`A`).
+- **Collision Grid**: 128-byte background collision grid (`$0680`–`$06FF`) evaluated per 16x16 block. Floor drop-down executed with Down + Jump (`A`).
 
 ---
 
-## 6. Input & Replay System (`scripts/game/`)
+## 6. Input & Replay System (`src/main.gd`, `src/game/game_loop.gd`)
 
 - **Controllers**: Godot `InputMap` integration with gamepad, keyboard, and touchscreen virtual overlay.
 - **Turbo Support**: Hardware-accurate alternate-frame button pulsing (30 Hz turbo).
-- **Deterministic `.replay` Engine**:
-  - Encodes inputs per frame: `[uint32_t frame_index, uint8_t p1_mask, uint8_t p2_mask]`.
-  - Enables 100% deterministic headless playback for automated speedrun verification and regression testing.
+- **Deterministic Replay & Verification**:
+  - Computes 32-bit FNV-1a state hashes (`get_state_hash()`) every frame for replay regression testing.
+
+---
+
+## 7. Modular Headless Verification Suite (`tests/`)
+
+Organized as focused, single-responsibility test suites executed via a unified runner:
+- `tests/run_headless_tests.gd`: Master test harness discovering ROMs and orchestrating all suites.
+- `tests/test_rom_loader.gd`: UNROM Mapper 2, iNES header, and bus translation (30 assertions).
+- `tests/test_chr_extractor.gd`: RLE pattern table decompressor, horizontal flip bit reversal (16 assertions).
+- `tests/test_level_loader.gd`: Level headers, 4x4 supertiles, palettes, screen RLE (70 assertions).
+- `tests/test_ppu_renderer.gd`: 2C02 software framebuffer, scrolling, and OAM sprites (17 assertions).
+- `tests/test_apu_sound.gd`: Ricoh 2A03 5 channels, DPCM sample playback, and BGM/SFX sequencer (23 assertions).
+- `tests/test_gameplay_simulation.gd`: Collision grid, player kinematics, bullet pool, and 180-frame determinism (31 assertions).

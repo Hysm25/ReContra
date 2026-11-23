@@ -21,6 +21,7 @@ assets_cache/
 
 # Godot Engine Metadata & Cache
 .godot/
+*.uid
 
 # Build Artifacts & Output
 build/

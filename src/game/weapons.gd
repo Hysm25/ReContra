@@ -1,7 +1,7 @@
 class_name BulletPool
 extends RefCounted
 
-const CollisionGridScript = preload("res://scripts/game/collision.gd")
+const CollisionGridScript = preload("res://src/game/collision.gd")
 
 ## Generic 16-Slot Bullet Pool & Ballistics Engine
 ## Emulates 16 slots ($0368-$04B7) matching NES Contra memory buffers.

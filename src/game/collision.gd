@@ -57,7 +57,7 @@ func unpack_screen(rom: RefCounted, header: RefCounted, screen_index: int, namet
 	if rom == null or header == null or nametable_index > 1:
 		return false
 
-	var LevelLoaderScript = preload("res://scripts/rom/level_loader.gd")
+	var LevelLoaderScript = preload("res://src/rom/level_loader.gd")
 	var supertiles: PackedByteArray = LevelLoaderScript.decompress_screen_supertiles(rom, header, screen_index)
 	if supertiles.is_empty():
 		return false

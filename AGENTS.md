@@ -19,10 +19,10 @@
 ```fish
 # 1. Run Headless Verification Test Suite
 set -gx GODOT_SILENCE_ROOT_WARNING 1
-godot --headless --script scripts/tests/run_headless_tests.gd
+godot --headless --script tests/run_headless_tests.gd
 
 # 2. Run Headless Verification with Explicit ROM Path
-godot --headless --script scripts/tests/run_headless_tests.gd --rom /path/to/Contra.nes
+godot --headless --script tests/run_headless_tests.gd --rom /path/to/Contra.nes
 
 # 3. Launch Interactive Game (Development / GUI)
 godot --path .

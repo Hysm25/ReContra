@@ -1,9 +1,9 @@
 class_name GameLoop
 extends RefCounted
 
-const CollisionGridScript = preload("res://scripts/game/collision.gd")
-const BulletPoolScript = preload("res://scripts/game/weapons.gd")
-const PlayerScript = preload("res://scripts/game/player.gd")
+const CollisionGridScript = preload("res://src/game/collision.gd")
+const BulletPoolScript = preload("res://src/game/weapons.gd")
+const PlayerScript = preload("res://src/game/player.gd")
 
 ## Generic 60.0988 Hz Fixed-Timestep Game Runtime & Coordinator
 ## Coordinates Player state machines, 16-slot BulletPool, CollisionGrid,
@@ -104,8 +104,8 @@ func load_level(level_idx: int) -> bool:
 		return false
 
 	current_level = level_idx
-	var LevelLoaderScript = preload("res://scripts/rom/level_loader.gd")
-	var ChrExtractorScript = preload("res://scripts/rom/chr_extractor.gd")
+	var LevelLoaderScript = preload("res://src/rom/level_loader.gd")
+	var ChrExtractorScript = preload("res://src/rom/chr_extractor.gd")
 
 	level_header = LevelLoaderScript.load_level_header(rom, level_idx)
 	if level_header == null:

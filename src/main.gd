@@ -5,12 +5,12 @@ extends Control
 ## Displays 256x240 software framebuffer on TextureRect, streams audio via
 ## AudioStreamGenerator, and arbitrates input across keyboard, gamepad, and touch controls.
 
-const RomLoaderScript = preload("res://scripts/rom/rom_loader.gd")
-const PpuRendererScript = preload("res://scripts/render/ppu_renderer.gd")
-const ApuSynthesizerScript = preload("res://scripts/audio/apu_synthesizer.gd")
-const SoundEngineScript = preload("res://scripts/audio/sound_engine.gd")
-const GameLoopScript = preload("res://scripts/game/game_loop.gd")
-const PlayerScript = preload("res://scripts/game/player.gd")
+const RomLoaderScript = preload("res://src/rom/rom_loader.gd")
+const PpuRendererScript = preload("res://src/render/ppu_renderer.gd")
+const ApuSynthesizerScript = preload("res://src/audio/apu_synthesizer.gd")
+const SoundEngineScript = preload("res://src/audio/sound_engine.gd")
+const GameLoopScript = preload("res://src/game/game_loop.gd")
+const PlayerScript = preload("res://src/game/player.gd")
 
 @onready var texture_rect: TextureRect = $Screen
 @onready var audio_player: AudioStreamPlayer = $AudioPlayer
