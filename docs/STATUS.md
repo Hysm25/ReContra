@@ -4,11 +4,11 @@
 
 ---
 
-## 1. Current Phase: Godot 4 Migration — Step 4 of 5 (2A03 APU Synthesizer & 6-Slot Audio Engine)
+## 1. Current Phase: Godot 4 Migration Complete — Advancing to Milestone 6 (Stage 1 Enemies & Boss)
 
 - **Phase Objective**: Migrate engine from C23/SDL3 to a clean-room Godot 4.3+ (GDScript) architecture.
-- **Current Milestone**: Step 4 of 5 — 2A03 APU Synthesizer & 6-Slot Audio Engine (COMPLETED & 100% Verified).
-- **Status**: Implemented `scripts/audio/apu_synthesizer.gd` and `scripts/audio/sound_engine.gd`; headless verification test suite passing 156/156 assertions with deterministic audio simulation hash `0x0C295808`.
+- **Current Milestone**: Godot 4 Clean-Room Migration Completed (Steps 1–5 / 100% Verified). Next Active Milestone: Milestone 6 — Stage 1 (Jungle) & Enemies.
+- **Status**: Implemented `scripts/game/collision.gd`, `scripts/game/player.gd`, `scripts/game/weapons.gd`, `scripts/game/game_loop.gd`, `scenes/main.tscn`, and `scripts/main.gd`. Headless verification test suite passing 187/187 assertions with deterministic state hash `0x811C9DC5` and audio hash `0x0C295808`.
 
 ---
 
@@ -32,12 +32,13 @@
   - [x] Implement `scripts/audio/apu_synthesizer.gd` generating 48 kHz stereo `PackedVector2Array` and `PackedFloat32Array` (Pulse 1, Pulse 2, Triangle, Noise, DMC, non-linear mixer curves, DC-blocking filter).
   - [x] Implement `scripts/audio/sound_engine.gd` dynamically parsing Bank 1 bytecode tables ($88E8, $88DB, $82CD, $8001, $86D5) with 6-slot priority arbitration (SFX Slot 4 over BGM Slot 0, SFX Slot 5 over BGM Slot 3) and sequencer flow control ($FD, $FE, $FF).
   - [x] Add APU & sound engine verification tests to `scripts/tests/run_headless_tests.gd` (156/156 assertions passing, deterministic audio CRC-32 `0x0C295808`).
-- [ ] **Step 5: Physics, Player State Machine, Weapon Pools & Deterministic Replay Verification**
-  - [ ] Implement `scripts/game/player.gd` (player state machine, aiming, parabolic jump, water diving, death recoil).
-  - [ ] Implement `scripts/game/weapons.gd` (16-slot bullet pool, Normal, M, F, S, L, R, B).
-  - [ ] Implement `scripts/game/collision.gd` (128-byte background collision grid and drop-through ledge timer).
-  - [ ] Implement `scripts/game/game_loop.gd` (60.0988 Hz fixed timestep coordinator and camera scroller).
-  - [ ] Add replay verification tests to `scripts/tests/run_headless_tests.gd`.
+- [x] **Step 5: Physics, Player State Machine, Weapon Pools & Deterministic Replay Verification**
+  - [x] Implement `scripts/game/player.gd` (player state machine, aiming, parabolic jump `-5.9375 px/frame` + `+0.1367` gravity, water diving, death recoil, Bank 1 `$B030` OAM frame unpacking).
+  - [x] Implement `scripts/game/weapons.gd` (16-slot bullet pool, Normal, M, F, S, L, R, B, Bank 6 ballistics tables, solid wall impact ring tile `0x47`).
+  - [x] Implement `scripts/game/collision.gd` (128-byte background collision grid `$0680-$06FF`, quadrant unpacking from 4x4 supertiles, 2-bit collision codes, Down+Jump drop-through scan).
+  - [x] Implement `scripts/game/game_loop.gd` (60.0988 Hz fixed timestep coordinator, dual-nametable outdoor camera scrolling, 32-bit FNV-1a `get_state_hash()`).
+  - [x] Create `scenes/main.tscn` and `scripts/main.gd` with 256x240 integer viewport, 48 kHz stereo audio via `AudioStreamGenerator`, multi-platform input handling (keyboard, gamepad, touch overlay), and fallback `FileDialog`.
+  - [x] Add replay verification tests to `scripts/tests/run_headless_tests.gd` (187/187 assertions passing).
 
 ---
 
@@ -65,6 +66,13 @@
 
 ## 4. Session Change Log
 
+- **2026-11-23**: Executed Step 5 of 5 for Godot 4 (GDScript) Clean-Room Migration:
+  1. Implemented `scripts/game/collision.gd`: 128-byte background collision grid (`$0680-$06FF`), quadrant unpacking from 4x4 supertiles, 2-bit collision decoding (`EMPTY=0`, `FLOOR=1`, `WATER=2`, `SOLID=3`), and `can_drop_down()` scan.
+  2. Implemented `scripts/game/player.gd`: 8-direction aim table resolution via Bank 7 `$D93A`, authentic jump kinematics (`-5.9375` px/frame initial impulse, `+0.1367` px/frame^2 gravity), Down+Jump floor bypass (12-frame timer), water surface swim and dive states, damage recoil arc, and Bank 1 `$B030` OAM sprite frame unpacking.
+  3. Implemented `scripts/game/weapons.gd`: 16-slot bullet pool with Bank 6 dynamic table ingestion (19 tables at `$B55D-$BAE2`), Standard rifle (quota 4, 3 px/frame), Machine Gun `M` (quota 6, `m_fire_timer`), Fireball `F` (16-step circular swirl tables), Spread Gun `S` (5-way angled fan with distance scaling), Laser `L` (4 sequential segments with staggered delay timers), Rapid Fire `R` velocity upgrade, and solid wall impact ring tile `0x47`.
+  4. Implemented `scripts/game/game_loop.gd`: 60.0988 Hz fixed-timestep runtime coordinating players, bullet pool, dual-nametable horizontal camera scrolling, PPU frame submission, and 32-bit FNV-1a deterministic state hashing (`get_state_hash()`).
+  5. Implemented `scenes/main.tscn` and `scripts/main.gd`: 256x240 integer viewport presentation via `TextureRect`, 48 kHz stereo audio via `AudioStreamGeneratorPlayback`, multi-platform input gathering, touch control overlay, and fallback `FileDialog` ROM selection.
+  6. Expanded `scripts/tests/run_headless_tests.gd` with 31 new assertions covering collision unpacking, 8-direction player aim resolution, jump parabola/gravity, bullet pool weapons (Normal, M, S, L, F), solid wall impact ring tile `0x47`, and 180-frame deterministic simulation replay verification (`0x811C9DC5`) across 187 passing assertions.
 - **2026-11-23**: Reorganized project layout and aligned all Markdown documentation with Godot 4:
   1. Pruned empty legacy directories (`src/`), created clean directories (`scripts/game/`, `scenes/`).
   2. Updated `AGENTS.md`, `README.md`, and `docs/ARCHITECTURE.md` to reflect Godot 4.3+ GDScript architecture, `fish` shell `godot --headless` run/test commands, and clean-room ROM ingestion rules.

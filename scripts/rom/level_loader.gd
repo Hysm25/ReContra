@@ -101,6 +101,11 @@ static func load_level_header(loader: RefCounted, level: int) -> LevelHeader:
 	return hdr
 
 
+## Alias for load_level_header
+static func load_header(loader: RefCounted, level: int) -> LevelHeader:
+	return load_level_header(loader, level)
+
+
 ## Reads a single 3-color palette entry (0..109) from Bank 7 game_palettes
 static func get_palette_colors(loader: RefCounted, palette_idx: int) -> PackedByteArray:
 	var out_colors: PackedByteArray = PackedByteArray()
