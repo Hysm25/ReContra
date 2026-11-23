@@ -4,15 +4,35 @@
 
 ---
 
-## 1. Current Phase: Phase 6 — Stage 1 (Jungle) & Enemies (`src/game/stages/`)
+## 1. Current Phase: Godot 4 Migration — Step 1 of 5 (Clean-Room Engine Setup & RomLoader)
 
-- **Phase Objective**: Implement Stage 1 horizontal scrolling progression, soldier generator (`SOLDIER_GENERATION_ROUTINE` `$79`), red turrets, snipers, flying falcons, exploding bridges, and Stage 1 defense wall boss.
-- **Current Milestone**: Phase 6.1 — Stage 1 Horizontal Scroller & Soldier Generation Routine (READY).
-- **Status**: Phase 0 (Build & Harness), Phase 1 (ROM Loader & CHR RLE Decompressor), Phase 2 (2C02 PPU 256x240 Renderer & OAM Sprite Engine), Phase 3 (2A03 APU Synthesizer & 6-Slot Audio Command Engine), Phase 4 (Physics, Player State Machine & Collision Grid), and Phase 5 (16-Slot Bullet Pool & Complete Weapon Subsystem) COMPLETED & 100% CTest Verified (8/8 passing).
+- **Phase Objective**: Migrate engine from C23/SDL3 to a clean-room Godot 4 (GDScript) architecture.
+- **Current Milestone**: Step 1 of 5 — Clean-room Godot 4 Project Setup & UNROM Mapper 2 RomLoader (COMPLETED & 100% Verified).
+- **Status**: Legacy C/C++ CMake files removed; `project.godot` configured (256x240 integer viewport, nearest-neighbor); strongly-typed generic `RomLoader` and headless test suite passing 35/35 assertions.
 
 ---
 
-## 2. Phased Implementation Roadmap
+## 2. Godot 4 Migration Roadmap (5 Steps)
+
+- [x] **Step 1: Clean-Room Engine Foundation & UNROM Mapper 2 RomLoader**
+  - [x] Remove legacy CMake, C/C++ `src/`, `tests/`, `.github/`, and `android/` directories.
+  - [x] Configure `project.godot` (256x240 viewport, integer stretch, nearest-neighbor filter) and `.gitignore`.
+  - [x] Implement generic, strongly-typed `scripts/rom/rom_loader.gd` (zero `TODO`s, iNES validation, SHA-256 / CRC-32 verification, `read_cpu` mapping).
+  - [x] Create and pass headless verification test suite `scripts/tests/run_headless_tests.gd` (35/35 passing).
+- [ ] **Step 2: CHR Pattern Table RLE Decompressor & Palette Subsystem**
+- [ ] **Step 3: PPU 256x240 Software / Tilemap Renderer & 8x16 OAM Sprite Engine**
+- [ ] **Step 4: 2A03 APU Synthesizer & 6-Slot Audio Engine**
+- [ ] **Step 5: Physics, Player State Machine & Deterministic Replay Verification**
+
+---
+
+## 3. Session Change Log
+- **2026-11-23**: Executed Step 1 of 5 for Godot 4 (GDScript) Clean-Room Migration:
+  1. Purged old CMake build files, C/C++ sources (`src/`), unit tests (`tests/`), CI workflows (`.github/`), and Android packaging (`android/`).
+  2. Created `project.godot` with 256x240 native viewport, integer scaling, and nearest-neighbor texture filtering; updated `.gitignore` with `.godot/`, `*.nes`, and `build/`.
+  3. Implemented `scripts/rom/rom_loader.gd` in strongly-typed GDScript validating iNES header (Mapper 2 UNROM, 128 KB PRG, 0 CHR), computing whole-file and PRG SHA-256 and CRC-32 checksums against `docs/MEMORY.md`, and mapping CPU addresses ($8000-$BFFF to banks 0..6, $C000-$FFFF to Bank 7).
+  4. Implemented `scripts/tests/run_headless_tests.gd` verifying all 35 test assertions under `godot --headless --script scripts/tests/run_headless_tests.gd`.
+
 
 ### Phase 0: Project Setup, Build Infrastructure & Replay Harness
 - [x] Inspect local Contra `.nes` ROM (`Contra (USA).nes`) and ca65 disassembly (`nes-contra-us/`).

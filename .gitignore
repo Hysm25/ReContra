@@ -19,6 +19,9 @@ assets_cache/
 *.chr
 *.prg
 
+# Godot Engine Metadata & Cache
+.godot/
+
 # Build Artifacts & Output
 build/
 cmake-build-*/

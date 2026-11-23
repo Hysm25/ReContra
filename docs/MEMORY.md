@@ -273,3 +273,12 @@ Direction Codes:
   1. Enforced strict landscape orientation in `android/app/src/main/AndroidManifest.xml` (`android:screenOrientation="landscape"`).
   2. Explicitly cleared the SDL renderer to pure black (`SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); SDL_RenderClear(renderer);`) on every frame, eliminating margin flickering.
   3. Decoupled touch controls overlay rendering from logical presentation scaling: temporarily disables logical presentation before drawing the touch overlay, rendering buttons and D-Pad directly in window pixel coordinates matching normalized touch event coordinates. Enabled touch overlay by default on Android and via `--touch` CLI flag.
+
+### ADR-016: Clean-Room Godot 4 (GDScript) Engine Migration & UNROM Mapper 2 RomLoader
+- **Context**: Re-platforming the re-implementation engine from C23/C++20/SDL3 to clean-room Godot 4 (GDScript) to maximize cross-platform portability, high-level developer ergonomics, and native 2D engine facilities while maintaining 100% behavioral, timing, and legal compliance.
+- **Decision**:
+  1. Removed legacy CMake build system, C/C++ `src/`, `tests/`, `.github/`, and `android/` folders.
+  2. Configured native `project.godot` targeting 256x240 internal resolution with `viewport` stretch mode, integer scaling (`window/stretch/scale_mode="integer"`), and nearest-neighbor texture filtering (`rendering/textures/canvas_textures/default_texture_filter=0`).
+  3. Implemented strongly-typed generic `RomLoader` (`scripts/rom/rom_loader.gd`) enforcing UNROM Mapper 2 rules (128 KB PRG ROM, 8 banks, 0 CHR ROM), verifying SHA-256 and CRC-32 checksums against authentic reference releases, and translating CPU addresses ($8000-$BFFF switchable, $C000-$FFFF fixed Bank 7) with zero hardcoded game tables.
+  4. Created headless verification suite (`scripts/tests/run_headless_tests.gd`) validating ROM ingestion, cryptographic verification, and bus mapping via `godot --headless --script scripts/tests/run_headless_tests.gd`.
+

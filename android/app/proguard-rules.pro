@@ -1,3 +1,0 @@
--keep class org.libsdl.app.** { *; }
--keep class com.recontra.game.** { *; }
--dontwarn org.libsdl.app.**
