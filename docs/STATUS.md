@@ -4,11 +4,11 @@
 
 ---
 
-## 1. Current Phase: Phase 2 — PPU 256x240 Renderer & OAM Sprite Engine
+## 1. Current Phase: Phase 3 — 2A03 APU Synthesizer & DPCM Audio (`src/audio/`)
 
-- **Phase Objective**: Implement 256x240 software framebuffer renderer, background nametable decoding, scrolling engine, and 8x16 OAM sprite engine.
-- **Current Milestone**: Phase 2.1 — Framebuffer & Nametable Renderer (READY).
-- **Status**: Phase 0 (Build & Harness) and Phase 1 (ROM Loader & CHR RLE Decompressor) COMPLETED & 100% CTest Verified.
+- **Phase Objective**: Implement Ricoh 2A03 5-channel sound synthesis (Pulse 1, Pulse 2, Triangle, Noise, DMC), 6-slot audio command engine, Bank 7 DPCM sample decoding, and SDL_AudioStream output.
+- **Current Milestone**: Phase 3.1 — 5-Channel APU Synthesizer Core (READY).
+- **Status**: Phase 0 (Build & Harness), Phase 1 (ROM Loader & CHR RLE Decompressor), and Phase 2 (2C02 PPU 256x240 Renderer & OAM Sprite Engine) COMPLETED & 100% CTest Verified.
 
 ---
 
@@ -34,14 +34,14 @@
 - [x] Automated headless test verifying 100% byte-accurate tile extraction against disassembly references.
 
 ### Phase 2: PPU 256x240 Renderer & OAM Sprite Engine (`src/render/`)
-- [ ] Implement 256x240 32-bit RGBA native framebuffer.
-- [ ] Implement SDL3 integer-scaled rendering with nearest-neighbor texture filtering.
-- [ ] Build Nametable background renderer:
+- [x] Implement 256x240 32-bit RGBA native framebuffer.
+- [x] Implement SDL3 integer-scaled rendering with nearest-neighbor texture filtering.
+- [x] Build Nametable background renderer:
   - Supertile matrix decoder (4x4 tiles per supertile).
   - Horizontal scrolling engine (Stages 1, 5, 6, 7, 8).
   - Vertical scrolling engine (Stage 3 Waterfall).
   - 3D perspective corridor renderer (Stages 2, 4 Base levels).
-- [ ] Build 64-sprite OAM engine (`$0200`–`$02FF`):
+- [x] Build 64-sprite OAM engine (`$0200`–`$02FF`):
   - 8x16 sprite composition.
   - Horizontal and vertical flipping.
   - Priority bit masking (behind background).
@@ -116,5 +116,6 @@
 ---
 
 ## 3. Session Change Log
+- **2026-11-23**: Completed Phase 2: implemented 2C02 PPU 256x240 software framebuffer renderer, 4-way nametable mirroring, supertile matrix unpackers for horizontal, vertical, and perspective corridor modes, 8x16 OAM sprite rasterizer with horizontal/vertical flipping, priority masking, authentic $4C cyclic priority shifting, and flicker-free toggle.
 - **2026-11-23**: Completed Phase 0 & Phase 1: implemented CMake build system, C23 crypto primitives (SHA-256, CRC-32), UNROM Mapper 2 ROM loader, Bank 7 dynamic RLE CHR tile decompressor, Bank 2/3 level header and supertile parsers, 2C02 NTSC RGBA palette mapping, headless CLI deterministic test harness, and 100% passing automated unit test suite.
 - **2026-11-22**: Initialized clean-room project documentation foundation tailored to `nes-contra-us` disassembly symbols, RAM addresses, UNROM bank layouts, and SDL3 architecture.

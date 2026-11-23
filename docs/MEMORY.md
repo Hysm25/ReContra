@@ -182,3 +182,7 @@ Derived from disassembly Bank 6 / Bank 0 for 24-direction aiming:
 ### ADR-007: Runtime Dynamic Hardware Pointer Ingestion
 - **Context**: Strictly adhere to clean-room legal boundary and zero hardcoded data tables.
 - **Decision**: All graphics pointers, level layouts, palettes, and supertile mappings are resolved dynamically at runtime by querying PRG Bank 7 (`$C950`, `$C8E3`, `$D225`) and PRG Bank 2 (`$B319`), preventing hardcoded asset data in engine source. Verified authentic ROM hashes: Headered SHA-256 `26541a5550ee22deeb3d5484e4a96130219b58cff74d068fb1eb6567fa5e5519` (CRC-32 `0xC50A8304`), PRG SHA-256 `d41e28b1a33b3b6768e7c39c9fdfb1fda4b49940542d14085911fabd399e1ca9` (CRC-32 `0xF6035030`).
+
+### ADR-008: 2C02 PPU Software Rasterizer & 8x16 OAM Sprite Architecture
+- **Context**: Ensure pixel-perfect, frame-accurate rendering matching authentic NES hardware without relying on full PPU cycle-by-cycle overhead.
+- **Decision**: Implemented high-performance scanline-based software rasterizer outputting 256x240 RGBA8888. Supports Vertical and Horizontal nametable mirroring, 4x4 supertile matrix unpacking, 32-byte internal Palette RAM with mirror folding, and full 8x16 OAM sprite rendering (`[Y, Tile, Attr, X]`) with vertical/horizontal flipping and background priority masking. Features a user-configurable toggle between authentic NES 8-sprite per scanline limit (with frame-by-frame `$4C` cyclic priority offset shifting) and modern flicker-free rendering.

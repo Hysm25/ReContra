@@ -14,6 +14,8 @@
 #include "rom/chr_extractor.h"
 #include "rom/level_loader.h"
 #include "render/palette.h"
+#include "render/ppu.h"
+#include "render/nametable.h"
 
 struct CliOptions {
     std::string rom_path = "";
@@ -22,19 +24,21 @@ struct CliOptions {
     std::string replay_path = "";
     bool verify_hash = false;
     bool dump_info = false;
+    bool authentic_flicker = false;
 };
 
 static void print_usage(const char *prog_name) {
     printf("ReContra - Clean-Room Authentic Contra (1988 NES) SDL3 Engine\n");
     printf("Usage: %s [options]\n\n", prog_name);
     printf("Options:\n");
-    printf("  --rom <path>       Specify path to user-supplied Contra .nes ROM\n");
-    printf("  --headless         Run headlessly without opening an SDL window\n");
-    printf("  --frames <N>       Number of frames to simulate (default: 60 in headless)\n");
-    printf("  --replay <path>    Load and playback a deterministic replay file\n");
-    printf("  --verify-hash      Compute and verify deterministic simulation hash\n");
-    printf("  --dump-info        Display ROM metadata, UNROM bank layout and checksums\n");
-    printf("  --help, -h         Show this help information\n");
+    printf("  --rom <path>           Specify path to user-supplied Contra .nes ROM\n");
+    printf("  --headless             Run headlessly without opening an SDL window\n");
+    printf("  --frames <N>           Number of frames to simulate (default: 60 in headless)\n");
+    printf("  --replay <path>        Load and playback a deterministic replay file\n");
+    printf("  --verify-hash          Compute and verify deterministic simulation hash\n");
+    printf("  --dump-info            Display ROM metadata, UNROM bank layout and checksums\n");
+    printf("  --authentic-flicker    Enable authentic NES 8-sprite/scanline limit with $4C shift\n");
+    printf("  --help, -h             Show this help information\n");
 }
 
 static bool parse_cli_args(int argc, char **argv, CliOptions &opts) {
@@ -49,6 +53,8 @@ static bool parse_cli_args(int argc, char **argv, CliOptions &opts) {
             opts.verify_hash = true;
         } else if (arg == "--dump-info") {
             opts.dump_info = true;
+        } else if (arg == "--authentic-flicker") {
+            opts.authentic_flicker = true;
         } else if (arg == "--frames") {
             if (i + 1 < argc) {
                 opts.frames = static_cast<uint32_t>(std::strtoul(argv[++i], nullptr, 10));
@@ -154,18 +160,35 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    // Allocate 16KB PPU VRAM and decompress Stage 1 graphics
-    std::vector<uint8_t> ppu_vram(PPU_VRAM_SIZE, 0);
-    res = chr_load_level_graphics(&rom, 0, ppu_vram.data(), ppu_vram.size());
+    // Initialize 2C02 PPU Subsystem
+    Ppu2C02 ppu;
+    ppu_init(&ppu);
+    ppu.flicker_free_sprites = !opts.authentic_flicker;
+    ppu_set_mirroring(&ppu, PPU_MIRROR_VERTICAL);
+
+    // Decompress Stage 1 graphics into PPU VRAM ($0000-$1FFF pattern tables)
+    res = chr_load_level_graphics(&rom, 0, ppu.vram, sizeof(ppu.vram));
     if (res != RECON_OK) {
         fprintf(stderr, "[ERROR] Failed to decompress Stage 1 CHR graphics: %d\n", res);
         rom_free(&rom);
         return 1;
     }
 
-    // Load Stage 1 palettes
+    // Load Stage 1 Level Header, Palettes and Supertile Nametables
+    LevelHeader lvl1;
+    if (level_load_header(&rom, 0, &lvl1) != RECON_OK) {
+        fprintf(stderr, "[ERROR] Failed to load Stage 1 level header\n");
+        rom_free(&rom);
+        return 1;
+    }
+
     uint8_t palette_ram[PALETTE_RAM_SIZE] = {0};
     level_load_palettes(&rom, 0, palette_ram);
+    ppu_load_palettes(&ppu, palette_ram);
+
+    // Unpack dual nametables for seamless horizontal scrolling (Screen 0 -> NT0, Screen 1 -> NT1)
+    nametable_unpack_screen_horizontal(&ppu, 0, &rom, &lvl1, 0);
+    nametable_unpack_screen_horizontal(&ppu, 1, &rom, &lvl1, 1);
 
     // Default frames for headless execution
     if (opts.headless && opts.frames == 0) {
@@ -192,12 +215,29 @@ int main(int argc, char **argv) {
             p1_pos.fract = 128; // 1.5 px/frame
             subpixel_update(&p1_x, &p1_pos);
 
+            // Advance PPU horizontal scroll register
+            ppu.scroll_x = static_cast<uint16_t>((ppu.scroll_x + 1) % 512);
+
+            // Player 8x16 sprite in OAM slot 0
+            ppu.oam[0] = 160;   // Y
+            ppu.oam[1] = 0x00;  // Tile index (8x16)
+            ppu.oam[2] = 0x00;  // Attr
+            ppu.oam[3] = p1_x;  // X
+
+            // Render complete scanline frame into 256x240 RGBA framebuffer
+            ppu_render_frame(&ppu);
+
             // Hash state accumulation
             sim_hash ^= frame_counter;
             sim_hash *= 0x01000193u;
             sim_hash ^= random_num;
             sim_hash *= 0x01000193u;
             sim_hash ^= p1_x;
+            sim_hash *= 0x01000193u;
+
+            // Framebuffer visual sample hash
+            uint32_t sample = ppu.framebuffer[120 * DISPLAY_WIDTH + 128];
+            sim_hash ^= sample;
             sim_hash *= 0x01000193u;
         }
 
@@ -252,17 +292,11 @@ int main(int argc, char **argv) {
         DISPLAY_HEIGHT
     );
 
-    std::vector<uint32_t> framebuffer(DISPLAY_WIDTH * DISPLAY_HEIGHT, 0);
-
-    // Initial background rendering from universal background color
-    uint32_t bg_color = nes_color_to_rgba(palette_ram[0]);
-    std::fill(framebuffer.begin(), framebuffer.end(), bg_color);
-
     bool running = true;
     SDL_Event event;
 
     uint32_t frame_count = 0;
-    while (running && frame_count < 120) { // Test loop run
+    while (running && frame_count < 1800) { // Interactive run loop
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) {
                 running = false;
@@ -273,7 +307,11 @@ int main(int argc, char **argv) {
             }
         }
 
-        SDL_UpdateTexture(fb_texture, nullptr, framebuffer.data(), DISPLAY_WIDTH * (int)sizeof(uint32_t));
+        // Advance scroll and render frame
+        ppu.scroll_x = static_cast<uint16_t>((ppu.scroll_x + 1) % 512);
+        ppu_render_frame(&ppu);
+
+        SDL_UpdateTexture(fb_texture, nullptr, ppu.framebuffer, DISPLAY_WIDTH * (int)sizeof(uint32_t));
         SDL_RenderClear(renderer);
         SDL_RenderTexture(renderer, fb_texture, nullptr, nullptr);
         SDL_RenderPresent(renderer);
@@ -288,6 +326,8 @@ int main(int argc, char **argv) {
     SDL_Quit();
 
     rom_free(&rom);
+    printf("[INFO] ReContra shut down cleanly.\n");
+    return 0;
     printf("[INFO] ReContra shut down cleanly.\n");
     return 0;
 }

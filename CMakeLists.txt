@@ -40,6 +40,8 @@ add_library(recontra_core STATIC
     src/rom/chr_extractor.c
     src/rom/level_loader.c
     src/render/palette.c
+    src/render/ppu.c
+    src/render/nametable.c
 )
 target_include_directories(recontra_core PUBLIC src)
 
@@ -71,6 +73,10 @@ add_test(NAME test_chr_extractor COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_chr_e
 add_executable(test_level_loader tests/test_level_loader.cpp)
 target_link_libraries(test_level_loader PRIVATE recontra_core)
 add_test(NAME test_level_loader COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_level_loader> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
+
+add_executable(test_ppu_renderer tests/test_ppu_renderer.cpp)
+target_link_libraries(test_ppu_renderer PRIVATE recontra_core)
+add_test(NAME test_ppu_renderer COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_ppu_renderer> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
 
 # Headless Deterministic Replay & Hash Verification Test
 add_test(
