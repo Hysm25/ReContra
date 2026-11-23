@@ -299,5 +299,16 @@ Direction Codes:
   4. Implemented 64 8x16 OAM sprite rasterizer supporting horizontal and vertical flipping, background priority masking (sprites behind non-zero background pixels), and toggleable scanline limit (authentic 8-sprite per scanline limit with cyclic `$4C` priority advance per frame vs unlimited flicker-free presentation).
   5. Verified deterministic dual-nametable scroll framebuffer CRC-32 (`0x820ABB35`) across 133 passing test assertions in `scripts/tests/run_headless_tests.gd`.
 
+### ADR-019: Clean-Room Ricoh 2A03 APU Synthesizer & 6-Slot Audio Engine Architecture
+- **Context**: Accurate NES audio reproduction requires cycle-stepped emulation of Pulse 1, Pulse 2, Triangle, Noise, and 1-bit DMC/DPCM channels, non-linear curve mixing, high-pass DC blocking, and dynamic Bank 1 sound bytecode execution with 6-slot priority arbitration.
+- **Decision**:
+  1. Implemented generic `ApuSynthesizer` (`scripts/audio/apu_synthesizer.gd`) outputting 48 kHz stereo `PackedVector2Array` frames for Godot's `AudioStreamGenerator` and `PackedFloat32Array` for headless test verification.
+  2. Emulated Pulse 1 & Pulse 2 (4 duty cycles, volume envelopes, hardware sweep with Pulse 1 1's complement vs Pulse 2 2's complement negation quirk), Triangle (32-step sequence, linear counter), Noise (15-bit and 9-bit mode LFSR, 16 NTSC periods), and DMC (1-bit delta modulation, Bank 7 sample memory `$FC00-$FFCF`).
+  3. Emulated NES non-linear mixer curve (`pulse_out = 95.88 / ((8128.0 / pulse_sum) + 100.0)`, `tnd_sum = tri/8227 + noise/12241 + dmc/22638`, `tnd_out = 159.79 / ((1.0 / tnd_sum) + 100.0)`) and first-order high-pass DC-blocking filter (`filtered = mixed - dc_filter_in + 0.995 * dc_filter_out`).
+  4. Implemented generic `SoundEngine` (`scripts/audio/sound_engine.gd`) dynamically reading sound bytecode and lookup tables from Bank 1 (`$88E8` sound commands, `$88DB` DPCM descriptors, `$82CD` percussion triggers, `$8001` pulse volume envelopes, `$86D5` note periods) via `RomLoader`.
+  5. Implemented 6 sound priority slots with full bytecode sequencer support (subroutine calls `$FD`, repeat loops `$FE`, stream terminators `$FF`, automatic decrescendo, and envelopes) and authentic priority arbitration (SFX Pulse 1 Slot 4 overrides BGM Pulse 1 Slot 0; SFX Noise Slot 5 overrides BGM Percussion Slot 3).
+  6. Verified all 5 channels, Stage 1 BGM (`0x2A`), DPCM percussion sample `0x5B`, SFX priority arbitration, and deterministic 60-frame audio simulation CRC-32 match (`0x0C295808`) across 156 passing test assertions in `scripts/tests/run_headless_tests.gd`.
+
+
 
 
