@@ -72,6 +72,13 @@ var frame_count: int = 0
 var _bg_pixel_val: PackedByteArray = PackedByteArray()
 var _sprite_drawn: PackedByteArray = PackedByteArray()
 
+# --- Pre-decoded 2bpp CHR Tile Pixel Cache (512 tiles * 64 pixels = 32 KB) ---
+var chr_pixel_cache: PackedByteArray = PackedByteArray()
+var _chr_cache_dirty: bool = true
+
+# --- Persistent Framebuffer Image Instance ---
+var _framebuffer_image: Image = null
+
 
 func _init() -> void:
 	_init_palette_cache()
@@ -81,6 +88,9 @@ func _init() -> void:
 	framebuffer.resize(FRAMEBUFFER_SIZE)
 	_bg_pixel_val.resize(DISPLAY_WIDTH)
 	_sprite_drawn.resize(DISPLAY_WIDTH)
+	chr_pixel_cache.resize(32768)
+	_chr_cache_dirty = true
+	_framebuffer_image = Image.create_from_data(DISPLAY_WIDTH, DISPLAY_HEIGHT, false, Image.FORMAT_RGBA8, framebuffer)
 	reset()
 
 
@@ -102,6 +112,7 @@ func reset() -> void:
 	vram.fill(0)
 	oam.fill(0)
 	framebuffer.fill(0)
+	_chr_cache_dirty = true
 
 	# Initialize default universal background color to black (0x0F)
 	palette_ram.fill(0x0F)
@@ -164,6 +175,8 @@ func write_vram(addr: int, val: int) -> void:
 		palette_ram[eff - 0x3F00] = val & 0x3F
 	if eff < vram.size():
 		vram[eff] = val & 0xFF
+		if eff < 0x2000:
+			_chr_cache_dirty = true
 
 
 ## Reads a byte from PPU memory space, handling mirroring and palette folding
@@ -197,17 +210,37 @@ func load_sprite_palettes(palette_src: PackedByteArray) -> void:
 		write_vram(0x3F10 + i, palette_src[i])
 
 
+## Pre-decodes 2bpp CHR tiles into 0..3 color indices, eliminating inner-loop bit-shifts
+func update_chr_cache() -> void:
+	if not _chr_cache_dirty:
+		return
+	_chr_cache_dirty = false
+	if chr_pixel_cache.size() != 32768:
+		chr_pixel_cache.resize(32768)
+
+	var cache_idx: int = 0
+	for t in range(512):
+		var tile_base: int = t * 16
+		for v in range(8):
+			var p0: int = vram[tile_base + v]
+			var p1: int = vram[tile_base + v + 8]
+			for u in range(8):
+				var shift: int = 7 - u
+				var b0: int = (p0 >> shift) & 1
+				var b1: int = (p1 >> shift) & 1
+				chr_pixel_cache[cache_idx] = (b1 << 1) | b0
+				cache_idx += 1
+
+
 ## Decodes 2-bit color index (0..3) of an 8x8 tile at pixel coordinate (u, v) [0..7, 0..7]
 func decode_tile_pixel(pattern_base: int, tile_idx: int, u: int, v: int) -> int:
-	var tile_offset: int = pattern_base + (tile_idx * 16) + v
-	if tile_offset + 8 >= vram.size():
-		return 0
-	var plane0: int = vram[tile_offset]
-	var plane1: int = vram[tile_offset + 8]
-	var shift: int = 7 - (u & 7)
-	var bit0: int = (plane0 >> shift) & 1
-	var bit1: int = (plane1 >> shift) & 1
-	return (bit1 << 1) | bit0
+	if _chr_cache_dirty:
+		update_chr_cache()
+	var global_tile: int = ((pattern_base >> 12) & 1) * 256 + (tile_idx & 0xFF)
+	var offset: int = (global_tile << 6) | ((v & 7) << 3) | (u & 7)
+	if offset < chr_pixel_cache.size():
+		return chr_pixel_cache[offset]
+	return 0
 
 
 ## Unpacks an 8x7 supertile screen into the specified Nametable (0 or 1: $2000 or $2400)
@@ -331,6 +364,8 @@ func unpack_corridor_perspective(nametable_idx: int, _room_depth_step: int = 0) 
 func render_scanline(scanline: int) -> void:
 	if scanline < 0 or scanline >= DISPLAY_HEIGHT:
 		return
+	if _chr_cache_dirty:
+		update_chr_cache()
 
 	var line_offset: int = scanline * DISPLAY_WIDTH * 4
 	var universal_bg_color: int = palette_ram[0]
@@ -343,12 +378,19 @@ func render_scanline(scanline: int) -> void:
 
 	# --- 1. Background Tile Layer Rendering ---
 	if (mask & PPUMASK_SHOW_BG) != 0:
-		# NES Contra backgrounds use Pattern Table 1 ($1000-$1FFF, PPUCTRL bit 4 = 1)
-		var pattern_base: int = 0x1000 if (ctrl & PPUCTRL_BG_TABLE_1000) != 0 else 0x1000
+		var pattern_base_tile: int = 256 if (ctrl & PPUCTRL_BG_TABLE_1000) != 0 else 256
 		var total_y: int = (scroll_y + scanline) % 480
 		var ty: int = total_y / 8
 		var py: int = total_y % 8
 		var nt_row: int = ty / 30
+		var tile_y_in_nt: int = ty % 30
+		var nt_row_offset: int = tile_y_in_nt * 32
+		var attr_row: int = tile_y_in_nt / 4
+		var quad_y: int = (tile_y_in_nt % 4) / 2
+
+		var last_tx: int = -1
+		var tile_row_offset: int = 0
+		var pal_base: int = 0
 
 		for x in range(DISPLAY_WIDTH):
 			var px_out: int = line_offset + (x * 4)
@@ -364,28 +406,25 @@ func render_scanline(scanline: int) -> void:
 			var total_x: int = (scroll_x + x) % 512
 			var tx: int = total_x / 8
 			var px: int = total_x % 8
-			var nt_col: int = tx / 32
 
-			var nt_idx: int = (nt_row * 2) + nt_col
-			var nt_base: int = 0x2000 + (nt_idx * 0x400)
+			if tx != last_tx:
+				last_tx = tx
+				var nt_idx: int = (nt_row * 2) + (tx / 32)
+				var nt_base: int = 0x2000 + (nt_idx * 0x400)
+				var tile_id: int = read_vram(nt_base + nt_row_offset + (tx % 32))
 
-			# Read tile ID from nametable
-			var tile_addr: int = nt_base + ((ty % 30) * 32) + (tx % 32)
-			var tile_id: int = read_vram(tile_addr)
+				var attr_col: int = (tx % 32) / 4
+				var attr_addr: int = nt_base + 960 + (attr_row * 8) + attr_col
+				var attr_byte: int = read_vram(attr_addr)
 
-			# Read attribute byte
-			var attr_col: int = (tx % 32) / 4
-			var attr_row: int = (ty % 30) / 4
-			var attr_addr: int = nt_base + 960 + (attr_row * 8) + attr_col
-			var attr_byte: int = read_vram(attr_addr)
+				var quad_x: int = ((tx % 32) % 4) / 2
+				var shift: int = (quad_y * 2 + quad_x) * 2
+				var subpalette: int = (attr_byte >> shift) & 0x03
 
-			var quad_x: int = ((tx % 32) % 4) / 2
-			var quad_y: int = ((ty % 30) % 4) / 2
-			var shift: int = (quad_y * 2 + quad_x) * 2
-			var subpalette: int = (attr_byte >> shift) & 0x03
+				tile_row_offset = ((pattern_base_tile + tile_id) << 6) | (py << 3)
+				pal_base = subpalette * 4
 
-			# Decode 2bpp tile pixel
-			var pixel_val: int = decode_tile_pixel(pattern_base, tile_id, px, py)
+			var pixel_val: int = chr_pixel_cache[tile_row_offset | px]
 			_bg_pixel_val[x] = pixel_val
 
 			if pixel_val == 0:
@@ -394,7 +433,7 @@ func render_scanline(scanline: int) -> void:
 				framebuffer[px_out + 2] = ub_b
 				framebuffer[px_out + 3] = 0xFF
 			else:
-				var nes_color: int = palette_ram[subpalette * 4 + pixel_val]
+				var nes_color: int = palette_ram[pal_base + pixel_val]
 				var c_off: int = (nes_color & 0x3F) * 4
 				framebuffer[px_out] = _palette_rgba_bytes[c_off]
 				framebuffer[px_out + 1] = _palette_rgba_bytes[c_off + 1]
@@ -446,7 +485,7 @@ func render_scanline(scanline: int) -> void:
 				row = 15 - row  # Vertical Flip
 
 			# 8x16 Mode: bit 0 selects pattern table, bits 1..7 select even tile
-			var pattern_base: int = 0x1000 if (tile_code & 1) != 0 else 0x0000
+			var pattern_base_tile: int = 256 if (tile_code & 1) != 0 else 0
 			var tile_base: int = tile_code & 0xFE
 			var actual_tile: int = tile_base if row < 8 else tile_base + 1
 			var actual_row: int = row if row < 8 else row - 8
@@ -454,6 +493,9 @@ func render_scanline(scanline: int) -> void:
 			var subpalette: int = attr & 0x03
 			var behind_bg: bool = (attr & 0x20) != 0
 			var flip_h: bool = (attr & 0x40) != 0
+
+			var sprite_row_offset: int = ((pattern_base_tile + actual_tile) << 6) | (actual_row << 3)
+			var pal_base: int = 16 + (subpalette * 4)
 
 			for col in range(8):
 				var screen_x: int = sx + col
@@ -465,7 +507,7 @@ func render_scanline(scanline: int) -> void:
 					continue  # Higher priority sprite already rendered
 
 				var u: int = (7 - col) if flip_h else col
-				var pixel_val: int = decode_tile_pixel(pattern_base, actual_tile, u, actual_row)
+				var pixel_val: int = chr_pixel_cache[sprite_row_offset | u]
 				if pixel_val == 0:
 					continue  # Transparent pixel
 
@@ -475,7 +517,7 @@ func render_scanline(scanline: int) -> void:
 				if behind_bg and _bg_pixel_val[screen_x] != 0:
 					continue
 
-				var nes_color: int = palette_ram[16 + (subpalette * 4) + pixel_val]
+				var nes_color: int = palette_ram[pal_base + pixel_val]
 				var c_off: int = (nes_color & 0x3F) * 4
 				var px_out: int = line_offset + (screen_x * 4)
 				framebuffer[px_out] = _palette_rgba_bytes[c_off]
@@ -499,12 +541,28 @@ func get_framebuffer() -> PackedByteArray:
 	return framebuffer
 
 
-## Creates a Godot Image from the current framebuffer
+## Returns Godot Image for the current framebuffer, reusing internal Image instance
 func get_framebuffer_image() -> Image:
-	return Image.create_from_data(DISPLAY_WIDTH, DISPLAY_HEIGHT, false, Image.FORMAT_RGBA8, framebuffer)
+	if _framebuffer_image == null:
+		_framebuffer_image = Image.create_from_data(DISPLAY_WIDTH, DISPLAY_HEIGHT, false, Image.FORMAT_RGBA8, framebuffer)
+	else:
+		_framebuffer_image.set_data(DISPLAY_WIDTH, DISPLAY_HEIGHT, false, Image.FORMAT_RGBA8, framebuffer)
+	return _framebuffer_image
 
 
 ## Creates an ImageTexture from the current framebuffer
 func get_framebuffer_texture() -> ImageTexture:
 	var img: Image = get_framebuffer_image()
 	return ImageTexture.create_from_image(img)
+
+
+## Updates an existing ImageTexture in-place reusing the internal Image instance
+func update_texture(tex: ImageTexture) -> void:
+	if tex == null:
+		return
+	if _framebuffer_image == null:
+		_framebuffer_image = Image.create_from_data(DISPLAY_WIDTH, DISPLAY_HEIGHT, false, Image.FORMAT_RGBA8, framebuffer)
+	else:
+		_framebuffer_image.set_data(DISPLAY_WIDTH, DISPLAY_HEIGHT, false, Image.FORMAT_RGBA8, framebuffer)
+	tex.update(_framebuffer_image)
+

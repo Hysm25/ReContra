@@ -8,7 +8,7 @@
 
 - **Phase Objective**: Migrate engine from C23/SDL3 to a clean-room Godot 4.3+ (GDScript) architecture.
 - **Current Milestone**: Godot 4 Clean-Room Migration Completed (Steps 1–5 / 100% Verified). Next Active Milestone: Milestone 6 — Stage 1 (Jungle) & Enemies.
-- **Status**: Implemented background Pattern Table 1 ($1000) base, dynamic sprite palettes from Bank 7, fractional viewport scaling, and multi-touch vector controls. Headless verification test suite passing 190/190 assertions with deterministic framebuffer CRC-32 `0xE36185A8`, state hash `0x811C9DC5`, and audio hash `0x0C295808` across 6 modular test suites under `tests/` orchestrated by `tests/run_headless_tests.gd`.
+- **Status**: Completed real-time performance optimizations for mobile PRoot ARM64 and Sandy Bridge CPUs (PPU CHR pixel cache, tile-span rasterization, persistent Image updates, APU mixer LUTs, 24 kHz playback, delta clamping). Headless verification test suite passing 190/190 assertions with deterministic framebuffer CRC-32 `0xE36185A8`, state hash `0x811C9DC5`, and audio hash `0x0C295808` across 6 modular test suites under `tests/` orchestrated by `tests/run_headless_tests.gd`. Next Active Milestone: Milestone 6 — Stage 1 (Jungle) & Enemies.
 
 ---
 
@@ -66,6 +66,13 @@
 
 ## 4. Session Change Log
 
+- **2026-11-23**: Real-time performance optimizations for mobile PRoot ARM64 & Sandy Bridge CPUs:
+  1. Clamped `delta` in `src/main.gd` (`minf(delta, 2.0 / 60.0988)`) and unified 60.0988 Hz simulation ticks with frame presentation in `_process()`, capping audio stream buffer fills to `MAX_AUDIO_CHUNK_FRAMES = 1024` to eliminate frame accumulation spirals.
+  2. Set real-time audio playback sample rate in `src/main.gd` to 24 kHz (`REALTIME_AUDIO_SAMPLE_RATE`), cutting per-frame audio synthesis loop iterations in half while preserving 48 kHz default configurable rate for headless test determinism (`0x0C295808`).
+  3. Precomputed 32-entry lookup table `PULSE_TABLE` for the APU non-linear mixer in `src/audio/apu_synthesizer.gd`, precomputed `half_cycles_per_sample` and `int_cycles_per_sample`, and added `generate_stereo_frames()`.
+  4. Implemented pre-decoded 32 KB `chr_pixel_cache` in `src/render/ppu_renderer.gd`, decoding 2bpp bitplanes into indexed `0..3` color bytes upon VRAM/CHR-RAM write and optimizing scanline background rasterization with 8-pixel tile span caching.
+  5. Reused persistent Godot `Image` instance `_framebuffer_image` and implemented `ppu.update_texture(fb_texture)`, eliminating ~14.7 MB/sec garbage collection allocation churn.
+  6. Verified 100% test passage across all 190 headless test assertions with zero regressions.
 - **2026-11-23**: Fixed visual presentation and UI prior to Milestone 6:
   1. Configured `PpuRenderer` background pattern table base to Pattern Table 1 (`$1000-$1FFF`, `PPUCTRL` bit 4 = 1), authenticating jungle trees, cliffs, bridges, and water rendering. Updated deterministic framebuffer CRC-32 to `0xE36185A8`.
   2. Implemented dynamic sprite palette loading in `LevelLoader` (`load_sprite_palettes`, `load_bg_palettes`) and `GameLoop`, loading Player 1 skin/blue (`0x37`, `0x12`, `0x0F`) and Player 2 skin/red (`0x36`, `0x16`, `0x0F`) into `$3F10-$3F1F`.

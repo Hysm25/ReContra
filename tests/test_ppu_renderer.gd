@@ -110,6 +110,7 @@ static func run(runner: Object, loader: RefCounted) -> bool:
 	runner.assert_test("Image Format RGBA8", fb_img.get_format() == Image.FORMAT_RGBA8)
 
 	var fb_tex: ImageTexture = ppu.get_framebuffer_texture()
+	ppu.update_texture(fb_tex)
 	runner.assert_test("ImageTexture Dimensions 256x240", fb_tex.get_width() == 256 and fb_tex.get_height() == 240)
 
 	# Corridor perspective unpacking

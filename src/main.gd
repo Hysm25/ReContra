@@ -12,6 +12,11 @@ const SoundEngineScript = preload("res://src/audio/sound_engine.gd")
 const GameLoopScript = preload("res://src/game/game_loop.gd")
 const PlayerScript = preload("res://src/game/player.gd")
 
+const NTSC_FRAME_DURATION: float = 1.0 / 60.0988
+const MAX_DELTA_CLAMP: float = 2.0 / 60.0988
+const REALTIME_AUDIO_SAMPLE_RATE: float = 24000.0
+const MAX_AUDIO_CHUNK_FRAMES: int = 1024
+
 @onready var texture_rect: TextureRect = $Screen
 @onready var audio_player: AudioStreamPlayer = $AudioPlayer
 @onready var touch_controls: Control = $TouchControls
@@ -29,6 +34,7 @@ var audio_playback: AudioStreamGeneratorPlayback = null
 
 var touch_input_mask: int = 0
 var is_game_running: bool = false
+var sim_accumulator: float = 0.0
 
 
 func _ready() -> void:
@@ -42,11 +48,11 @@ func _ready() -> void:
 		_prompt_for_rom()
 
 
-## Configures 48 kHz stereo AudioStreamGenerator playback
+## Configures 24 kHz stereo AudioStreamGenerator playback
 func _setup_audio() -> void:
 	audio_generator = AudioStreamGenerator.new()
-	audio_generator.mix_rate = 48000.0
-	audio_generator.buffer_length = 0.1
+	audio_generator.mix_rate = REALTIME_AUDIO_SAMPLE_RATE
+	audio_generator.buffer_length = 0.08
 	audio_player.stream = audio_generator
 	audio_player.play()
 	audio_playback = audio_player.get_stream_playback()
@@ -116,7 +122,7 @@ func _start_game(path: String) -> void:
 		return
 
 	ppu = PpuRendererScript.new()
-	apu = ApuSynthesizerScript.new(48000)
+	apu = ApuSynthesizerScript.new(int(REALTIME_AUDIO_SAMPLE_RATE))
 	apu.set_dmc_memory(rom_loader.get_bank(7))
 
 	sound_engine = SoundEngineScript.new()
@@ -129,31 +135,36 @@ func _start_game(path: String) -> void:
 	fb_texture = ImageTexture.create_from_image(img)
 	texture_rect.texture = fb_texture
 
+	sim_accumulator = 0.0
 	is_game_running = true
 
 
-func _physics_process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if not is_game_running or game_loop == null:
 		return
 
-	var input_mask: int = _gather_input()
-	game_loop.tick(input_mask)
+	# Clamp delta to prevent frame-accumulation spiral of death during lag spikes
+	var clamped_delta: float = minf(delta, MAX_DELTA_CLAMP)
+	sim_accumulator += clamped_delta
 
-	# Update screen texture
-	var img: Image = ppu.get_framebuffer_image()
-	if fb_texture != null:
-		fb_texture.update(img)
+	var stepped: bool = false
+	while sim_accumulator >= NTSC_FRAME_DURATION:
+		sim_accumulator -= NTSC_FRAME_DURATION
+		var input_mask: int = _gather_input()
+		game_loop.tick(input_mask)
+		stepped = true
 
+	# Update screen texture in-place when simulation advanced
+	if stepped and fb_texture != null and ppu != null:
+		ppu.update_texture(fb_texture)
 
-func _process(_delta: float) -> void:
-	if not is_game_running or apu == null or audio_playback == null:
-		return
-
-	# Fill audio playback buffer with synthesized samples
-	var frames_avail: int = audio_playback.get_frames_available()
-	if frames_avail > 0:
-		var frames: PackedVector2Array = apu.generate_samples(frames_avail)
-		audio_playback.push_buffer(frames)
+	# Stream audio frames up to available buffer space, capped per frame
+	if apu != null and audio_playback != null:
+		var frames_avail: int = audio_playback.get_frames_available()
+		if frames_avail > 0:
+			var frames_to_generate: int = mini(frames_avail, MAX_AUDIO_CHUNK_FRAMES)
+			var frames: PackedVector2Array = apu.generate_stereo_frames(frames_to_generate)
+			audio_playback.push_buffer(frames)
 
 
 ## Gathers composite bitmask from keyboard, gamepad, and touch input

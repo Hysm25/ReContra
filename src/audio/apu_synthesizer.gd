@@ -64,6 +64,17 @@ const DMC_PERIODS: PackedInt32Array = [
 	428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106, 84, 72, 54
 ]
 
+# --- Precomputed 32-entry lookup table for Pulse channels non-linear mixer ---
+static var PULSE_TABLE: PackedFloat64Array = _init_pulse_table()
+
+static func _init_pulse_table() -> PackedFloat64Array:
+	var tbl: PackedFloat64Array = PackedFloat64Array()
+	tbl.resize(32)
+	tbl[0] = 0.0
+	for n in range(1, 32):
+		tbl[n] = 95.88 / ((8128.0 / float(n)) + 100.0)
+	return tbl
+
 # --- Nested Classes: Channel Definitions ---
 class PulseChannel extends RefCounted:
 	var enabled: bool = false
@@ -215,6 +226,8 @@ var dmc: DmcChannel = DmcChannel.new()
 
 var sample_rate: int = APU_DEFAULT_SAMPLE_RATE
 var cycles_per_sample: float = float(APU_NTSC_CPU_CLOCK) / float(APU_DEFAULT_SAMPLE_RATE)
+var half_cycles_per_sample: float = (float(APU_NTSC_CPU_CLOCK) / float(APU_DEFAULT_SAMPLE_RATE)) * 0.5
+var int_cycles_per_sample: int = int(float(APU_NTSC_CPU_CLOCK) / float(APU_DEFAULT_SAMPLE_RATE))
 var dc_filter_in: float = 0.0
 var dc_filter_out: float = 0.0
 
@@ -227,6 +240,8 @@ func _init(target_sample_rate: int = APU_DEFAULT_SAMPLE_RATE) -> void:
 	pulse2.is_pulse2 = true
 	sample_rate = target_sample_rate if target_sample_rate > 0 else APU_DEFAULT_SAMPLE_RATE
 	cycles_per_sample = float(APU_NTSC_CPU_CLOCK) / float(sample_rate)
+	half_cycles_per_sample = cycles_per_sample * 0.5
+	int_cycles_per_sample = int(cycles_per_sample)
 	reset()
 
 
@@ -420,8 +435,8 @@ func clock_frame_half() -> void:
 	pulse2.clock_sweep()
 
 
-## Generates audio samples as PackedVector2Array (for AudioStreamGenerator stereo output)
-func generate_samples(count: int) -> PackedVector2Array:
+## Generates stereo audio samples as PackedVector2Array (for AudioStreamGenerator stereo output)
+func generate_stereo_frames(count: int) -> PackedVector2Array:
 	var out: PackedVector2Array = PackedVector2Array()
 	if count <= 0:
 		return out
@@ -432,6 +447,11 @@ func generate_samples(count: int) -> PackedVector2Array:
 		out[s] = Vector2(filtered, filtered)
 
 	return out
+
+
+## Backward-compatible alias for generate_stereo_frames
+func generate_samples(count: int) -> PackedVector2Array:
+	return generate_stereo_frames(count)
 
 
 ## Generates raw mono audio samples as PackedFloat32Array (for headless verification and CRC-32 testing)
@@ -447,10 +467,10 @@ func generate_samples_float(count: int) -> PackedFloat32Array:
 	return out
 
 
-## Synthesizes a single 48 kHz audio sample through all channels and the non-linear mixer
+## Synthesizes a single audio sample through all channels and the non-linear mixer
 func _synthesize_single_sample() -> float:
 	# Advance frame sequencer
-	frame_cycles += int(cycles_per_sample)
+	frame_cycles += int_cycles_per_sample
 	while frame_cycles >= APU_FRAME_QUARTER_CYCLES:
 		frame_cycles -= APU_FRAME_QUARTER_CYCLES
 		frame_step += 1
@@ -484,7 +504,7 @@ func _synthesize_single_sample() -> float:
 	# 1. Pulse 1 Channel
 	var pulse1_out: int = 0
 	if pulse1.enabled and pulse1.length_counter > 0 and not pulse1.is_muted():
-		pulse1.timer_counter -= cycles_per_sample * 0.5
+		pulse1.timer_counter -= half_cycles_per_sample
 		while pulse1.timer_counter <= 0.0:
 			pulse1.timer_counter += float(pulse1.timer_period + 1)
 			pulse1.sequence_step = (pulse1.sequence_step + 1) & 0x07
@@ -494,7 +514,7 @@ func _synthesize_single_sample() -> float:
 	# 2. Pulse 2 Channel
 	var pulse2_out: int = 0
 	if pulse2.enabled and pulse2.length_counter > 0 and not pulse2.is_muted():
-		pulse2.timer_counter -= cycles_per_sample * 0.5
+		pulse2.timer_counter -= half_cycles_per_sample
 		while pulse2.timer_counter <= 0.0:
 			pulse2.timer_counter += float(pulse2.timer_period + 1)
 			pulse2.sequence_step = (pulse2.sequence_step + 1) & 0x07
@@ -566,10 +586,7 @@ func _synthesize_single_sample() -> float:
 	var dmc_out: int = dmc.output_level
 
 	# Non-linear NES Mixer Curves
-	var pulse_sum: float = float(pulse1_out + pulse2_out)
-	var pulse_out: float = 0.0
-	if pulse_sum > 0.0:
-		pulse_out = 95.88 / ((8128.0 / pulse_sum) + 100.0)
+	var pulse_out: float = PULSE_TABLE[pulse1_out + pulse2_out]
 
 	var tnd_sum: float = (float(tri_out) / 8227.0) + (float(noise_out) / 12241.0) + (float(dmc_out) / 22638.0)
 	var tnd_out: float = 0.0
