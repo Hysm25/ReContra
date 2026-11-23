@@ -4,11 +4,11 @@
 
 ---
 
-## 1. Current Phase: Phase 3 — 2A03 APU Synthesizer & DPCM Audio (`src/audio/`)
+## 1. Current Phase: Phase 4 — Core Gameplay Physics, Player State & Controls (`src/game/`)
 
-- **Phase Objective**: Implement Ricoh 2A03 5-channel sound synthesis (Pulse 1, Pulse 2, Triangle, Noise, DMC), 6-slot audio command engine, Bank 7 DPCM sample decoding, and SDL_AudioStream output.
-- **Current Milestone**: Phase 3.1 — 5-Channel APU Synthesizer Core (READY).
-- **Status**: Phase 0 (Build & Harness), Phase 1 (ROM Loader & CHR RLE Decompressor), and Phase 2 (2C02 PPU 256x240 Renderer & OAM Sprite Engine) COMPLETED & 100% CTest Verified.
+- **Phase Objective**: Implement deterministic 60.0988 Hz fixed-timestep game loop (`GAME_ROUTINE_INDEX` `$18`), sub-pixel physics (`Fast` + `Fract` accumulators), player state machine (idle, run, prone, jump, swim, death, 8-way aim), and background collision detection grid.
+- **Current Milestone**: Phase 4.1 — Fixed-Timestep 60.0988 Hz Simulation & Player Physics State Machine (READY).
+- **Status**: Phase 0 (Build & Harness), Phase 1 (ROM Loader & CHR RLE Decompressor), Phase 2 (2C02 PPU 256x240 Renderer & OAM Sprite Engine), and Phase 3 (2A03 APU Synthesizer & 6-Slot Audio Command Engine) COMPLETED & 100% CTest Verified (6/6 passing).
 
 ---
 
@@ -48,13 +48,13 @@
   - Authentic `$4C` offset frame priority cycling with optional flicker-free toggle.
 
 ### Phase 3: 2A03 APU Synthesizer & DPCM Audio (`src/audio/`)
-- [ ] Implement Ricoh 2A03 5-channel sound synthesis (Pulse 1, Pulse 2, Triangle, Noise, DMC).
-- [ ] Implement Contra 6-slot audio command engine (`$0100`–`$018F`):
+- [x] Implement Ricoh 2A03 5-channel sound synthesis (Pulse 1, Pulse 2, Triangle, Noise, DMC).
+- [x] Implement Contra 6-slot audio command engine (`$0100`–`$018F`):
   - Slot priorities and channel routing.
   - Bytecode parser for BGM tracks and SFX commands.
   - Envelope timers, decrescendo pauses, vibrato logic.
-- [ ] Implement Bank 7 DPCM sample decoder (`$FC00`–`$FFCF`) for percussion beats and explosions.
-- [ ] Stream synthesized audio via `SDL_AudioStream` (48 kHz 32-bit float).
+- [x] Implement Bank 7 DPCM sample decoder (`$FC00`–`$FFCF`) for percussion beats and explosions.
+- [x] Stream synthesized audio via `SDL_AudioStream` (48 kHz 32-bit float).
 
 ### Phase 4: Core Gameplay Physics, Player State & Controls (`src/game/`)
 - [ ] Implement deterministic 60.0988 Hz fixed-timestep game loop (`GAME_ROUTINE_INDEX` `$18`).
@@ -116,6 +116,7 @@
 ---
 
 ## 3. Session Change Log
+- **2026-11-23**: Completed Phase 3: implemented Ricoh 2A03 5-channel sound synthesizer (Pulse 1, Pulse 2, Triangle, Noise, DMC), 6-slot audio command engine (`$0100`–`$018F`), Bank 1 bytecode interpreter and volume envelopes (`$88E8`, `$88DB`, `$82CD`, `$8001`, `$86D5`), Bank 7 DPCM percussion sample ingestion (`$FC00`–`$FFCF`), SDL3 `SDL_AudioStream` integration, and 100% deterministic audio hash verification.
 - **2026-11-23**: Completed Phase 2: implemented 2C02 PPU 256x240 software framebuffer renderer, 4-way nametable mirroring, supertile matrix unpackers for horizontal, vertical, and perspective corridor modes, 8x16 OAM sprite rasterizer with horizontal/vertical flipping, priority masking, authentic $4C cyclic priority shifting, and flicker-free toggle.
 - **2026-11-23**: Completed Phase 0 & Phase 1: implemented CMake build system, C23 crypto primitives (SHA-256, CRC-32), UNROM Mapper 2 ROM loader, Bank 7 dynamic RLE CHR tile decompressor, Bank 2/3 level header and supertile parsers, 2C02 NTSC RGBA palette mapping, headless CLI deterministic test harness, and 100% passing automated unit test suite.
 - **2026-11-22**: Initialized clean-room project documentation foundation tailored to `nes-contra-us` disassembly symbols, RAM addresses, UNROM bank layouts, and SDL3 architecture.

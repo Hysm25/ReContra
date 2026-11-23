@@ -42,6 +42,8 @@ add_library(recontra_core STATIC
     src/render/palette.c
     src/render/ppu.c
     src/render/nametable.c
+    src/audio/apu.c
+    src/audio/sound_engine.c
 )
 target_include_directories(recontra_core PUBLIC src)
 
@@ -77,6 +79,10 @@ add_test(NAME test_level_loader COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_level_
 add_executable(test_ppu_renderer tests/test_ppu_renderer.cpp)
 target_link_libraries(test_ppu_renderer PRIVATE recontra_core)
 add_test(NAME test_ppu_renderer COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_ppu_renderer> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
+
+add_executable(test_apu_audio tests/test_apu_audio.cpp)
+target_link_libraries(test_apu_audio PRIVATE recontra_core)
+add_test(NAME test_apu_audio COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_apu_audio> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
 
 # Headless Deterministic Replay & Hash Verification Test
 add_test(

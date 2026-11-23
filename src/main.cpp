@@ -16,6 +16,8 @@
 #include "render/palette.h"
 #include "render/ppu.h"
 #include "render/nametable.h"
+#include "audio/apu.h"
+#include "audio/sound_engine.h"
 
 struct CliOptions {
     std::string rom_path = "";
@@ -190,6 +192,18 @@ int main(int argc, char **argv) {
     nametable_unpack_screen_horizontal(&ppu, 0, &rom, &lvl1, 0);
     nametable_unpack_screen_horizontal(&ppu, 1, &rom, &lvl1, 1);
 
+    // Initialize 2A03 APU and Audio Command Engine
+    Apu2A03 apu;
+    apu_init(&apu, 48000);
+    const uint8_t *bank7_prg = rom.prg_data + 7 * PRG_BANK_SIZE;
+    apu_set_dmc_memory(&apu, bank7_prg, PRG_BANK_SIZE);
+
+    SoundEngine sound_engine;
+    sound_engine_init(&sound_engine, &rom);
+
+    // Trigger Stage 1 BGM (Sound Code 0x2A)
+    sound_engine_play_sound(&sound_engine, &apu, 0x2A);
+
     // Default frames for headless execution
     if (opts.headless && opts.frames == 0) {
         opts.frames = opts.verify_hash ? 3600u : 60u;
@@ -204,6 +218,7 @@ int main(int argc, char **argv) {
         uint8_t random_num = 0;
         SubpixelPos p1_pos = {0, 0, 0};
         uint8_t p1_x = 32;
+        float audio_buf[799] = {0};
 
         for (uint32_t f = 0; f < opts.frames; ++f) {
             frame_counter++;
@@ -227,6 +242,10 @@ int main(int argc, char **argv) {
             // Render complete scanline frame into 256x240 RGBA framebuffer
             ppu_render_frame(&ppu);
 
+            // Audio simulation frame
+            sound_engine_update_frame(&sound_engine, &apu);
+            apu_generate_samples(&apu, audio_buf, 799);
+
             // Hash state accumulation
             sim_hash ^= frame_counter;
             sim_hash *= 0x01000193u;
@@ -238,6 +257,13 @@ int main(int argc, char **argv) {
             // Framebuffer visual sample hash
             uint32_t sample = ppu.framebuffer[120 * DISPLAY_WIDTH + 128];
             sim_hash ^= sample;
+            sim_hash *= 0x01000193u;
+
+            // Audio sample hash
+            uint32_t audio_sample_int = 0;
+            float audio_val = audio_buf[400];
+            std::memcpy(&audio_sample_int, &audio_val, sizeof(uint32_t));
+            sim_hash ^= audio_sample_int;
             sim_hash *= 0x01000193u;
         }
 
@@ -252,7 +278,7 @@ int main(int argc, char **argv) {
         return 0;
     }
 
-    // Interactive SDL3 Window & Rendering
+    // Interactive SDL3 Window, Audio & Rendering
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMEPAD)) {
         printf("[INFO] SDL_Init video failed (%s). Falling back cleanly to headless mode.\n", SDL_GetError());
         rom_free(&rom);
@@ -292,10 +318,22 @@ int main(int argc, char **argv) {
         DISPLAY_HEIGHT
     );
 
+    // SDL3 Audio Stream Setup
+    SDL_AudioSpec audio_spec;
+    audio_spec.channels = 1;
+    audio_spec.format = SDL_AUDIO_F32;
+    audio_spec.freq = 48000;
+    SDL_AudioStream *audio_stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &audio_spec, nullptr, nullptr);
+    if (audio_stream) {
+        SDL_ResumeAudioStreamDevice(audio_stream);
+    }
+
     bool running = true;
     SDL_Event event;
 
     uint32_t frame_count = 0;
+    float audio_buf[799] = {0};
+
     while (running && frame_count < 1800) { // Interactive run loop
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_EVENT_QUIT) {
@@ -311,6 +349,13 @@ int main(int argc, char **argv) {
         ppu.scroll_x = static_cast<uint16_t>((ppu.scroll_x + 1) % 512);
         ppu_render_frame(&ppu);
 
+        // Advance audio frame
+        sound_engine_update_frame(&sound_engine, &apu);
+        apu_generate_samples(&apu, audio_buf, 799);
+        if (audio_stream) {
+            SDL_PutAudioStreamData(audio_stream, audio_buf, static_cast<int>(799 * sizeof(float)));
+        }
+
         SDL_UpdateTexture(fb_texture, nullptr, ppu.framebuffer, DISPLAY_WIDTH * (int)sizeof(uint32_t));
         SDL_RenderClear(renderer);
         SDL_RenderTexture(renderer, fb_texture, nullptr, nullptr);
@@ -320,14 +365,16 @@ int main(int argc, char **argv) {
         std::this_thread::sleep_for(std::chrono::milliseconds(16));
     }
 
+    if (audio_stream) {
+        SDL_DestroyAudioStream(audio_stream);
+    }
+
     SDL_DestroyTexture(fb_texture);
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
     SDL_Quit();
 
     rom_free(&rom);
-    printf("[INFO] ReContra shut down cleanly.\n");
-    return 0;
     printf("[INFO] ReContra shut down cleanly.\n");
     return 0;
 }
