@@ -151,6 +151,28 @@ Derived from disassembly Bank 6 / Bank 0 for 24-direction aiming:
 - Order: Up, Up, Down, Down, Left, Right, Left, Right, B, A (Length: 10).
 - Bitmask: `Up=0x08, Down=0x04, Left=0x02, Right=0x01, B=0x40, A=0x80`. Filtered with `and #$CF` (ignores Start/Select during entry).
 
+### 3.3 Authentic NES Contra Aim Direction Codes (`PLAYER_AIM_DIR` `$C2`)
+Resolved dynamically from PRG Bank 7 `d_pad_player_aim_tbl` at CPU `$D93A` (64 bytes: 4 rows x 16 D-pad entries):
+- **Row 0 (`$00`)**: Standing / Running facing Right
+- **Row 1 (`$10`)**: Standing / Running facing Left
+- **Row 2 (`$20`)**: Indoor 3D Corridor Mode
+- **Row 3 (`$30`)**: Airborne / Jumping
+
+Direction Codes:
+| Code | Direction / State | Disassembly Reference |
+| :--- | :--- | :--- |
+| **`$00`** | Aim Up (facing right) | `#$00 up facing right` |
+| **`$01`** | Aim Up-Right | `#$01 up-right` |
+| **`$02`** | Aim Right (horizontal) | `#$02 right` |
+| **`$03`** | Aim Down-Right | `#$03 right-down` |
+| **`$04`** | Crouch facing Right | `#$04 crouching facing right` |
+| **`$05`** | Crouch facing Left | `#$05 crouching facing left` |
+| **`$06`** | Aim Down-Left | `#$06 left-down` |
+| **`$07`** | Aim Left (horizontal) | `#$07 left` |
+| **`$08`** | Aim Up-Left | `#$08 up-left` |
+| **`$09`** | Aim Up (facing left) | `#$09 up facing left` |
+| **`$0A`** | Aim Straight Down (Airborne) | `#$0a down (jumping)` |
+
 ---
 
 ## 4. Architectural Decision Records (ADRs)
@@ -189,4 +211,8 @@ Derived from disassembly Bank 6 / Bank 0 for 24-direction aiming:
 
 ### ADR-009: Ricoh 2A03 5-Channel Sound Synthesizer & 6-Slot Command Engine
 - **Context**: Authentic 8-bit sound synthesis reproducing BGM tracks, digitized DPCM percussion samples, and sound effects with slot priority arbitration and zero committed audio assets.
-- **Decision**: Implemented modular Ricoh 2A03 software APU synthesizer featuring Pulse 1 & Pulse 2 with 4-step duty cycle sequencer and sweep unit, 32-step Triangle generator, 15-bit/9-bit LFSR pseudo-random Noise generator, and 1-bit DMC delta modulation channel with 48,000 Hz float output and DC-blocking filter. Implemented authentic 6-slot command engine reading sound bytecode streams dynamically from Bank 1 (`$88E8`, `$88DB`, `$82CD`, `$8001`, `$86D5`) and streaming DPCM digitized samples from Bank 7 (`$FC00`–`$FFCF`). Enforced authentic slot priority arbitration where SFX Pulse 1 (Slot 4) overrides BGM Pulse 1 (Slot 0), and SFX Noise (Slot 5) overrides BGM Noise (Slot 3). Headless simulation hash updated to `0x9C8A7224`.
+- **Decision**: Implemented modular Ricoh 2A03 software APU synthesizer featuring Pulse 1 & Pulse 2 with 4-step duty cycle sequencer and sweep unit, 32-step Triangle generator, 15-bit/9-bit LFSR pseudo-random Noise generator, and 1-bit DMC delta modulation channel with 48,000 Hz float output and DC-blocking filter. Implemented authentic 6-slot command engine reading sound bytecode streams dynamically from Bank 1 (`$88E8`, `$88DB`, `$82CD`, `$8001`, `$86D5`) and streaming DPCM digitized samples from Bank 7 (`$FC00`–`$FFCF`). Enforced authentic slot priority arbitration where SFX Pulse 1 (Slot 4) overrides BGM Pulse 1 (Slot 0), and SFX Noise (Slot 5) overrides BGM Noise (Slot 3).
+
+### ADR-010: Player State Machine, Fixed-Point Physics & Collision Grid Architecture
+- **Context**: 100% behavioral fidelity for player movement, jump parabola, ledge drop-down, water mechanics, camera tracking, and background tile collisions without hardcoded tables.
+- **Decision**: Implemented 128-byte background collision grid (`BG_COLLISION_DATA` `$0680`–`$06FF`) unpacking 2-bit collision codes (0: Empty, 1: Floor, 2: Water, 3: Solid) dynamically from screen supertiles using `header->collision_limits`. Implemented full Player state machine with authentic sub-pixel fixed-point physics (initial jump impulse `vel_y_fast = -5`, `vel_y_fract = 0xF0` = `-5.9375` px/frame; gravity accumulator `vel_y_fract += 0x23` = `+0.1367` px/frame^2). Integrated authentic 12-frame floor bypass timer (`edge_fall_code`) for Down + Jump A platform drop-downs, water swimming/submerged diving states, damage recoil arcs, and dynamic aim table lookup from PRG Bank 7 `$D93A`. Orchestrated via `GameRuntime` with 60.0988 Hz fixed-timestep coordination, dynamic dual-nametable camera scrolling with mid-screen lead tracking, and OAM sprite submission. Headless 3600-frame deterministic simulation hash verified at `0xEFB99A22`.

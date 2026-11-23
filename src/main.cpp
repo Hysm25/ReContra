@@ -18,6 +18,9 @@
 #include "render/nametable.h"
 #include "audio/apu.h"
 #include "audio/sound_engine.h"
+#include "game/collision.h"
+#include "game/player.h"
+#include "game/game_runtime.h"
 
 struct CliOptions {
     std::string rom_path = "";
@@ -168,30 +171,6 @@ int main(int argc, char **argv) {
     ppu.flicker_free_sprites = !opts.authentic_flicker;
     ppu_set_mirroring(&ppu, PPU_MIRROR_VERTICAL);
 
-    // Decompress Stage 1 graphics into PPU VRAM ($0000-$1FFF pattern tables)
-    res = chr_load_level_graphics(&rom, 0, ppu.vram, sizeof(ppu.vram));
-    if (res != RECON_OK) {
-        fprintf(stderr, "[ERROR] Failed to decompress Stage 1 CHR graphics: %d\n", res);
-        rom_free(&rom);
-        return 1;
-    }
-
-    // Load Stage 1 Level Header, Palettes and Supertile Nametables
-    LevelHeader lvl1;
-    if (level_load_header(&rom, 0, &lvl1) != RECON_OK) {
-        fprintf(stderr, "[ERROR] Failed to load Stage 1 level header\n");
-        rom_free(&rom);
-        return 1;
-    }
-
-    uint8_t palette_ram[PALETTE_RAM_SIZE] = {0};
-    level_load_palettes(&rom, 0, palette_ram);
-    ppu_load_palettes(&ppu, palette_ram);
-
-    // Unpack dual nametables for seamless horizontal scrolling (Screen 0 -> NT0, Screen 1 -> NT1)
-    nametable_unpack_screen_horizontal(&ppu, 0, &rom, &lvl1, 0);
-    nametable_unpack_screen_horizontal(&ppu, 1, &rom, &lvl1, 1);
-
     // Initialize 2A03 APU and Audio Command Engine
     Apu2A03 apu;
     apu_init(&apu, 48000);
@@ -201,8 +180,21 @@ int main(int argc, char **argv) {
     SoundEngine sound_engine;
     sound_engine_init(&sound_engine, &rom);
 
-    // Trigger Stage 1 BGM (Sound Code 0x2A)
-    sound_engine_play_sound(&sound_engine, &apu, 0x2A);
+    // Initialize GameRuntime Engine
+    GameRuntime runtime;
+    res = game_runtime_init(&runtime, &rom);
+    if (res != RECON_OK) {
+        fprintf(stderr, "[ERROR] Failed to initialize GameRuntime (Error: %d)\n", res);
+        rom_free(&rom);
+        return 1;
+    }
+
+    res = game_runtime_load_level(&runtime, 0, &ppu, &sound_engine, &apu);
+    if (res != RECON_OK) {
+        fprintf(stderr, "[ERROR] Failed to load Stage 1 (Error: %d)\n", res);
+        rom_free(&rom);
+        return 1;
+    }
 
     // Default frames for headless execution
     if (opts.headless && opts.frames == 0) {
@@ -214,44 +206,21 @@ int main(int argc, char **argv) {
         printf("[HEADLESS] Simulating %u frames @ 60.0988 Hz locked timestep...\n", opts.frames);
 
         uint32_t sim_hash = 0x811C9DC5u; // FNV-1a 32-bit offset basis
-        uint8_t frame_counter = 0;
-        uint8_t random_num = 0;
-        SubpixelPos p1_pos = {0, 0, 0};
-        uint8_t p1_x = 32;
         float audio_buf[799] = {0};
 
         for (uint32_t f = 0; f < opts.frames; ++f) {
-            frame_counter++;
-            // Authentic NES Contra PRNG update: FRAME_COUNTER + RANDOM_NUM
-            random_num = static_cast<uint8_t>(random_num + frame_counter);
+            uint8_t input = GAME_INPUT_RIGHT;
+            if ((f % 60) == 20) {
+                input |= GAME_INPUT_A; // Jump every 60 frames
+            }
 
-            // Subpixel motion simulation
-            p1_pos.fast = 1;
-            p1_pos.fract = 128; // 1.5 px/frame
-            subpixel_update(&p1_x, &p1_pos);
-
-            // Advance PPU horizontal scroll register
-            ppu.scroll_x = static_cast<uint16_t>((ppu.scroll_x + 1) % 512);
-
-            // Player 8x16 sprite in OAM slot 0
-            ppu.oam[0] = 160;   // Y
-            ppu.oam[1] = 0x00;  // Tile index (8x16)
-            ppu.oam[2] = 0x00;  // Attr
-            ppu.oam[3] = p1_x;  // X
-
-            // Render complete scanline frame into 256x240 RGBA framebuffer
-            ppu_render_frame(&ppu);
-
-            // Audio simulation frame
-            sound_engine_update_frame(&sound_engine, &apu);
+            // Tick full game simulation (physics, collisions, scroller, PPU, sound)
+            game_runtime_tick(&runtime, input, 0, &ppu, &sound_engine, &apu);
             apu_generate_samples(&apu, audio_buf, 799);
 
-            // Hash state accumulation
-            sim_hash ^= frame_counter;
-            sim_hash *= 0x01000193u;
-            sim_hash ^= random_num;
-            sim_hash *= 0x01000193u;
-            sim_hash ^= p1_x;
+            // Accumulate simulation state hash
+            uint32_t state_hash = game_runtime_get_state_hash(&runtime);
+            sim_hash ^= state_hash;
             sim_hash *= 0x01000193u;
 
             // Framebuffer visual sample hash
@@ -345,12 +314,23 @@ int main(int argc, char **argv) {
             }
         }
 
-        // Advance scroll and render frame
-        ppu.scroll_x = static_cast<uint16_t>((ppu.scroll_x + 1) % 512);
-        ppu_render_frame(&ppu);
+        const bool *keystates = SDL_GetKeyboardState(nullptr);
+        uint8_t p1_input = 0;
+        if (keystates) {
+            if (keystates[SDL_SCANCODE_RIGHT] || keystates[SDL_SCANCODE_D]) p1_input |= GAME_INPUT_RIGHT;
+            if (keystates[SDL_SCANCODE_LEFT] || keystates[SDL_SCANCODE_A])  p1_input |= GAME_INPUT_LEFT;
+            if (keystates[SDL_SCANCODE_DOWN] || keystates[SDL_SCANCODE_S])  p1_input |= GAME_INPUT_DOWN;
+            if (keystates[SDL_SCANCODE_UP] || keystates[SDL_SCANCODE_W])    p1_input |= GAME_INPUT_UP;
+            if (keystates[SDL_SCANCODE_RETURN])                             p1_input |= GAME_INPUT_START;
+            if (keystates[SDL_SCANCODE_RSHIFT] || keystates[SDL_SCANCODE_LSHIFT]) p1_input |= GAME_INPUT_SELECT;
+            if (keystates[SDL_SCANCODE_J] || keystates[SDL_SCANCODE_Z])     p1_input |= GAME_INPUT_B;
+            if (keystates[SDL_SCANCODE_K] || keystates[SDL_SCANCODE_X] || keystates[SDL_SCANCODE_SPACE]) p1_input |= GAME_INPUT_A;
+        }
+
+        // Tick game runtime
+        game_runtime_tick(&runtime, p1_input, 0, &ppu, &sound_engine, &apu);
 
         // Advance audio frame
-        sound_engine_update_frame(&sound_engine, &apu);
         apu_generate_samples(&apu, audio_buf, 799);
         if (audio_stream) {
             SDL_PutAudioStreamData(audio_stream, audio_buf, static_cast<int>(799 * sizeof(float)));

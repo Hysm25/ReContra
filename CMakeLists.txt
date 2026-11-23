@@ -44,6 +44,9 @@ add_library(recontra_core STATIC
     src/render/nametable.c
     src/audio/apu.c
     src/audio/sound_engine.c
+    src/game/collision.c
+    src/game/player.c
+    src/game/game_runtime.c
 )
 target_include_directories(recontra_core PUBLIC src)
 
@@ -83,6 +86,10 @@ add_test(NAME test_ppu_renderer COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_ppu_re
 add_executable(test_apu_audio tests/test_apu_audio.cpp)
 target_link_libraries(test_apu_audio PRIVATE recontra_core)
 add_test(NAME test_apu_audio COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_apu_audio> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
+
+add_executable(test_game_physics tests/test_game_physics.cpp)
+target_link_libraries(test_game_physics PRIVATE recontra_core)
+add_test(NAME test_game_physics COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_game_physics> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
 
 # Headless Deterministic Replay & Hash Verification Test
 add_test(

@@ -4,11 +4,11 @@
 
 ---
 
-## 1. Current Phase: Phase 4 — Core Gameplay Physics, Player State & Controls (`src/game/`)
+## 1. Current Phase: Phase 5 — Weapon System & Bullet Pool (`src/game/weapons/`)
 
-- **Phase Objective**: Implement deterministic 60.0988 Hz fixed-timestep game loop (`GAME_ROUTINE_INDEX` `$18`), sub-pixel physics (`Fast` + `Fract` accumulators), player state machine (idle, run, prone, jump, swim, death, 8-way aim), and background collision detection grid.
-- **Current Milestone**: Phase 4.1 — Fixed-Timestep 60.0988 Hz Simulation & Player Physics State Machine (READY).
-- **Status**: Phase 0 (Build & Harness), Phase 1 (ROM Loader & CHR RLE Decompressor), Phase 2 (2C02 PPU 256x240 Renderer & OAM Sprite Engine), and Phase 3 (2A03 APU Synthesizer & 6-Slot Audio Command Engine) COMPLETED & 100% CTest Verified (6/6 passing).
+- **Phase Objective**: Implement 16-slot Player Bullet Pool (`$0368`–`$04B7`), Standard Rifle, Machine Gun (`M`), Fireball (`F`), Spread Gun (`S`), Laser (`L`), Rapid Fire (`R`), and Barrier (`B`).
+- **Current Milestone**: Phase 5.1 — 16-Slot Bullet Pool & Standard Rifle / Spread Gun Trajectory Engine (READY).
+- **Status**: Phase 0 (Build & Harness), Phase 1 (ROM Loader & CHR RLE Decompressor), Phase 2 (2C02 PPU 256x240 Renderer & OAM Sprite Engine), Phase 3 (2A03 APU Synthesizer & 6-Slot Audio Command Engine), and Phase 4 (Physics, Player State Machine & Collision Grid) COMPLETED & 100% CTest Verified (7/7 passing).
 
 ---
 
@@ -57,16 +57,17 @@
 - [x] Stream synthesized audio via `SDL_AudioStream` (48 kHz 32-bit float).
 
 ### Phase 4: Core Gameplay Physics, Player State & Controls (`src/game/`)
-- [ ] Implement deterministic 60.0988 Hz fixed-timestep game loop (`GAME_ROUTINE_INDEX` `$18`).
-- [ ] Implement sub-pixel fixed-point physics (`Fast` + `Fract` accumulators).
-- [ ] Build Player State Machine (`PLAYER_STATE` `$90`):
-  - 8-direction aiming (`PLAYER_AIM_DIR` `$C2`).
-  - Running, ducking, prone crawling, jumping arc (`PLAYER_JUMP_COEFFICIENT`).
+- [x] Implement deterministic 60.0988 Hz fixed-timestep game loop (`GAME_ROUTINE_INDEX` `$18`).
+- [x] Implement sub-pixel fixed-point physics (`Fast` + `Fract` accumulators).
+- [x] Build Player State Machine (`PLAYER_STATE` `$90`):
+  - 8-direction aiming (`PLAYER_AIM_DIR` `$C2`) mapped dynamically from Bank 7 `$D93A`.
+  - Running, ducking, prone crawling, jumping arc (`PLAYER_JUMP_COEFFICIENT`, `-5.9375` px/frame initial impulse, `+0.1367` px/frame^2 gravity).
   - Water mechanics (swimming and submerged diving via `PLAYER_WATER_STATE`).
   - Hit recoil, death animation, invincibility respawn timer.
-- [ ] Implement background collision checks (`BG_COLLISION_DATA` `$0680`–`$06FF`):
-  - Floor landing and drop-down (Down + Jump).
+- [x] Implement background collision checks (`BG_COLLISION_DATA` `$0680`–`$06FF`):
+  - Floor landing and drop-down (Down + Jump) with 12-frame floor bypass timer.
   - Water tiles and solid wall barriers.
+- [x] Build GameRuntime coordination engine for camera scrolling, dual-nametable streaming, and PPU OAM sprite rendering.
 
 ### Phase 5: Weapon System & Bullet Pool (`src/game/weapons/`)
 - [ ] Implement 16-slot Player Bullet Pool (`$0368`–`$04B7`).
@@ -116,6 +117,7 @@
 ---
 
 ## 3. Session Change Log
+- **2026-11-23**: Completed Phase 4: implemented 128-byte background collision grid (`BG_COLLISION_DATA` `$0680`–`$06FF`), player state machine (`PLAYER_STATE` `$90`), 8-direction authentic aim table dynamically loaded from Bank 7 `$D93A`, parabolic jump physics (`-5.9375` px/frame initial impulse, `+0.1367` px/frame^2 gravity), Down + Jump platform drop-down with 12-frame floor bypass timer (`edge_fall_code`), water swimming/submerged diving, damage recoil arc, `GameRuntime` 60.0988 Hz fixed-timestep coordinator with dual-nametable horizontal scrolling, and 100% CTest verification pass (7/7 passing, 3600-frame hash `0xEFB99A22`).
 - **2026-11-23**: Completed Phase 3: implemented Ricoh 2A03 5-channel sound synthesizer (Pulse 1, Pulse 2, Triangle, Noise, DMC), 6-slot audio command engine (`$0100`–`$018F`), Bank 1 bytecode interpreter and volume envelopes (`$88E8`, `$88DB`, `$82CD`, `$8001`, `$86D5`), Bank 7 DPCM percussion sample ingestion (`$FC00`–`$FFCF`), SDL3 `SDL_AudioStream` integration, and 100% deterministic audio hash verification.
 - **2026-11-23**: Completed Phase 2: implemented 2C02 PPU 256x240 software framebuffer renderer, 4-way nametable mirroring, supertile matrix unpackers for horizontal, vertical, and perspective corridor modes, 8x16 OAM sprite rasterizer with horizontal/vertical flipping, priority masking, authentic $4C cyclic priority shifting, and flicker-free toggle.
 - **2026-11-23**: Completed Phase 0 & Phase 1: implemented CMake build system, C23 crypto primitives (SHA-256, CRC-32), UNROM Mapper 2 ROM loader, Bank 7 dynamic RLE CHR tile decompressor, Bank 2/3 level header and supertile parsers, 2C02 NTSC RGBA palette mapping, headless CLI deterministic test harness, and 100% passing automated unit test suite.
