@@ -25,10 +25,14 @@ if (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64")
 endif()
 
 # Find SDL3
-find_package(SDL3 CONFIG QUIET)
-if (NOT SDL3_FOUND)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(SDL3 REQUIRED sdl3)
+if (ANDROID)
+    find_package(SDL3 CONFIG REQUIRED)
+else()
+    find_package(SDL3 CONFIG QUIET)
+    if (NOT SDL3_FOUND)
+        find_package(PkgConfig REQUIRED)
+        pkg_check_modules(SDL3 REQUIRED sdl3)
+    endif()
 endif()
 
 include_directories(src)
@@ -50,49 +54,60 @@ add_library(recontra_core STATIC
 )
 target_include_directories(recontra_core PUBLIC src)
 
-# Main Game Executable
-add_executable(contra src/main.cpp)
-target_link_libraries(contra PRIVATE recontra_core)
-
-if (TARGET SDL3::SDL3)
-    target_link_libraries(contra PRIVATE SDL3::SDL3)
+if (ANDROID)
+    # Android JNI shared library loaded by SDLActivity
+    add_library(main SHARED src/main.cpp)
+    target_link_libraries(main PRIVATE recontra_core)
+    if (TARGET SDL3::SDL3-shared)
+        target_link_libraries(main PRIVATE SDL3::SDL3-shared)
+    elseif (TARGET SDL3::SDL3)
+        target_link_libraries(main PRIVATE SDL3::SDL3)
+    endif()
 else()
-    target_include_directories(contra PRIVATE ${SDL3_INCLUDE_DIRS})
-    target_link_libraries(contra PRIVATE ${SDL3_LIBRARIES})
+    # Main Game Executable for Desktop / Headless
+    add_executable(contra src/main.cpp)
+    target_link_libraries(contra PRIVATE recontra_core)
+
+    if (TARGET SDL3::SDL3)
+        target_link_libraries(contra PRIVATE SDL3::SDL3)
+    else()
+        target_include_directories(contra PRIVATE ${SDL3_INCLUDE_DIRS})
+        target_link_libraries(contra PRIVATE ${SDL3_LIBRARIES})
+    endif()
+
+    # Headless & Unit Testing Harness
+    enable_testing()
+
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    set(TEST_RUNNER ${Python3_EXECUTABLE} "${CMAKE_SOURCE_DIR}/scripts/test_runner.py")
+
+    add_executable(test_rom_loader tests/test_rom_loader.cpp)
+    target_link_libraries(test_rom_loader PRIVATE recontra_core)
+    add_test(NAME test_rom_loader COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_rom_loader> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
+
+    add_executable(test_chr_extractor tests/test_chr_extractor.cpp)
+    target_link_libraries(test_chr_extractor PRIVATE recontra_core)
+    add_test(NAME test_chr_extractor COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_chr_extractor> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
+
+    add_executable(test_level_loader tests/test_level_loader.cpp)
+    target_link_libraries(test_level_loader PRIVATE recontra_core)
+    add_test(NAME test_level_loader COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_level_loader> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
+
+    add_executable(test_ppu_renderer tests/test_ppu_renderer.cpp)
+    target_link_libraries(test_ppu_renderer PRIVATE recontra_core)
+    add_test(NAME test_ppu_renderer COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_ppu_renderer> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
+
+    add_executable(test_apu_audio tests/test_apu_audio.cpp)
+    target_link_libraries(test_apu_audio PRIVATE recontra_core)
+    add_test(NAME test_apu_audio COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_apu_audio> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
+
+    add_executable(test_game_physics tests/test_game_physics.cpp)
+    target_link_libraries(test_game_physics PRIVATE recontra_core)
+    add_test(NAME test_game_physics COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_game_physics> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
+
+    # Headless Deterministic Replay & Hash Verification Test
+    add_test(
+        NAME test_headless_deterministic_verify
+        COMMAND ${TEST_RUNNER} $<TARGET_FILE:contra> --rom "${CMAKE_SOURCE_DIR}/Contra (USA).nes" --headless --frames 3600 --verify-hash
+    )
 endif()
-
-# Headless & Unit Testing Harness
-enable_testing()
-
-find_package(Python3 COMPONENTS Interpreter REQUIRED)
-set(TEST_RUNNER ${Python3_EXECUTABLE} "${CMAKE_SOURCE_DIR}/scripts/test_runner.py")
-
-add_executable(test_rom_loader tests/test_rom_loader.cpp)
-target_link_libraries(test_rom_loader PRIVATE recontra_core)
-add_test(NAME test_rom_loader COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_rom_loader> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
-
-add_executable(test_chr_extractor tests/test_chr_extractor.cpp)
-target_link_libraries(test_chr_extractor PRIVATE recontra_core)
-add_test(NAME test_chr_extractor COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_chr_extractor> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
-
-add_executable(test_level_loader tests/test_level_loader.cpp)
-target_link_libraries(test_level_loader PRIVATE recontra_core)
-add_test(NAME test_level_loader COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_level_loader> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
-
-add_executable(test_ppu_renderer tests/test_ppu_renderer.cpp)
-target_link_libraries(test_ppu_renderer PRIVATE recontra_core)
-add_test(NAME test_ppu_renderer COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_ppu_renderer> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
-
-add_executable(test_apu_audio tests/test_apu_audio.cpp)
-target_link_libraries(test_apu_audio PRIVATE recontra_core)
-add_test(NAME test_apu_audio COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_apu_audio> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
-
-add_executable(test_game_physics tests/test_game_physics.cpp)
-target_link_libraries(test_game_physics PRIVATE recontra_core)
-add_test(NAME test_game_physics COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_game_physics> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
-
-# Headless Deterministic Replay & Hash Verification Test
-add_test(
-    NAME test_headless_deterministic_verify
-    COMMAND ${TEST_RUNNER} $<TARGET_FILE:contra> --rom "${CMAKE_SOURCE_DIR}/Contra (USA).nes" --headless --frames 3600 --verify-hash
-)

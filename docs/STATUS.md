@@ -110,13 +110,17 @@
 - [ ] Record and pass 100% deterministic headless replays for all 8 stages.
 
 ### Phase 11: Cross-Platform Packaging & Performance Optimization
+- [x] Implement clean-room Android APK packaging (`arm64-v8a`) with Gradle, Prefab, and SDL3.
+- [x] Implement Android Storage Access Framework (SAF) document picker and multi-touch on-screen overlay controls.
+- [x] Deploy automated GitHub Actions CI workflow (`.github/workflows/android.yml`) building and uploading debug APK artifacts.
 - [ ] Validate compilation and test pass on EndeavourOS Sandy Bridge (AVX-only, `-mno-avx2`).
-- [ ] Validate compilation and headless test pass inside Fedora PRoot ARM64.
+- [x] Validate compilation and headless test pass inside Fedora PRoot ARM64.
 - [ ] Package standalone desktop release with desktop entry and assets extractor.
 
 ---
 
 ## 3. Session Change Log
+- **2026-11-23**: Added clean-room Android APK packaging (`arm64-v8a`) and automated GitHub Actions CI workflow (`.github/workflows/android.yml`). Configured `CMakeLists.txt` for conditional `libmain.so` shared library compilation with SDL3 Prefab support, built minimal self-contained `android/` Gradle project with automated SDL3 AAR fetching, implemented Android document picker (`ACTION_OPEN_DOCUMENT`) and multi-path ROM discovery, and created responsive on-screen virtual touch controls (D-Pad, A, B, Select, Start) with alpha-blended rendering.
 - **2026-11-23**: Completed Phase 4: implemented 128-byte background collision grid (`BG_COLLISION_DATA` `$0680`–`$06FF`), player state machine (`PLAYER_STATE` `$90`), 8-direction authentic aim table dynamically loaded from Bank 7 `$D93A`, parabolic jump physics (`-5.9375` px/frame initial impulse, `+0.1367` px/frame^2 gravity), Down + Jump platform drop-down with 12-frame floor bypass timer (`edge_fall_code`), water swimming/submerged diving, damage recoil arc, `GameRuntime` 60.0988 Hz fixed-timestep coordinator with dual-nametable horizontal scrolling, and 100% CTest verification pass (7/7 passing, 3600-frame hash `0xEFB99A22`).
 - **2026-11-23**: Completed Phase 3: implemented Ricoh 2A03 5-channel sound synthesizer (Pulse 1, Pulse 2, Triangle, Noise, DMC), 6-slot audio command engine (`$0100`–`$018F`), Bank 1 bytecode interpreter and volume envelopes (`$88E8`, `$88DB`, `$82CD`, `$8001`, `$86D5`), Bank 7 DPCM percussion sample ingestion (`$FC00`–`$FFCF`), SDL3 `SDL_AudioStream` integration, and 100% deterministic audio hash verification.
 - **2026-11-23**: Completed Phase 2: implemented 2C02 PPU 256x240 software framebuffer renderer, 4-way nametable mirroring, supertile matrix unpackers for horizontal, vertical, and perspective corridor modes, 8x16 OAM sprite rasterizer with horizontal/vertical flipping, priority masking, authentic $4C cyclic priority shifting, and flicker-free toggle.

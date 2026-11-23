@@ -46,6 +46,19 @@ test_output/
 compile_commands.json
 .cache/
 
+# Android Build Artifacts & Gradle
+.gradle/
+android/.gradle/
+android/local.properties
+android/app/build/
+android/.cxx/
+android/app/.cxx/
+android/app/libs/
+android/build/
+*.apk
+*.aab
+*.ap_
+
 # System & OS Files
 .DS_Store
 Thumbs.db

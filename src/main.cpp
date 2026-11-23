@@ -1,12 +1,14 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cmath>
 #include <string>
 #include <vector>
 #include <chrono>
 #include <thread>
 
 #include <SDL3/SDL.h>
+#include <SDL3/SDL_main.h>
 
 #include "core/types.h"
 #include "core/crypto.h"
@@ -30,6 +32,185 @@ struct CliOptions {
     bool verify_hash = false;
     bool dump_info = false;
     bool authentic_flicker = false;
+};
+
+/*
+ * Clean-Room On-Screen Virtual Touch Controls (Android / Touchscreen)
+ */
+struct TouchControls {
+    bool enabled = false;
+    uint8_t touch_input = 0;
+
+    struct Finger {
+        SDL_FingerID id = 0;
+        float x = 0.0f;
+        float y = 0.0f;
+        bool active = false;
+    };
+    static constexpr size_t MAX_FINGERS = 10;
+    Finger fingers[MAX_FINGERS];
+
+    void on_finger_down(SDL_FingerID id, float x, float y) {
+        enabled = true;
+        for (size_t i = 0; i < MAX_FINGERS; ++i) {
+            if (!fingers[i].active) {
+                fingers[i] = {id, x, y, true};
+                break;
+            }
+        }
+        update_inputs();
+    }
+
+    void on_finger_motion(SDL_FingerID id, float x, float y) {
+        for (size_t i = 0; i < MAX_FINGERS; ++i) {
+            if (fingers[i].active && fingers[i].id == id) {
+                fingers[i].x = x;
+                fingers[i].y = y;
+                break;
+            }
+        }
+        update_inputs();
+    }
+
+    void on_finger_up(SDL_FingerID id) {
+        for (size_t i = 0; i < MAX_FINGERS; ++i) {
+            if (fingers[i].active && fingers[i].id == id) {
+                fingers[i].active = false;
+                break;
+            }
+        }
+        update_inputs();
+    }
+
+    void update_inputs() {
+        touch_input = 0;
+        const float dpad_cx = 0.16f;
+        const float dpad_cy = 0.72f;
+        const float dpad_deadzone = 0.035f;
+
+        const float btn_b_cx = 0.80f;
+        const float btn_b_cy = 0.75f;
+        const float btn_a_cx = 0.92f;
+        const float btn_a_cy = 0.62f;
+        const float sel_cx = 0.40f;
+        const float sel_cy = 0.90f;
+        const float start_cx = 0.60f;
+        const float start_cy = 0.90f;
+        const float btn_r = 0.075f;
+        const float sys_r = 0.060f;
+
+        for (size_t i = 0; i < MAX_FINGERS; ++i) {
+            if (!fingers[i].active) continue;
+            float fx = fingers[i].x;
+            float fy = fingers[i].y;
+
+            // Virtual D-Pad
+            float dpad_dx = fx - dpad_cx;
+            float dpad_dy = fy - dpad_cy;
+            float dpad_dist = std::sqrt(dpad_dx * dpad_dx + dpad_dy * dpad_dy);
+            if (dpad_dist <= 0.18f) {
+                if (dpad_dx > dpad_deadzone)  touch_input |= GAME_INPUT_RIGHT;
+                if (dpad_dx < -dpad_deadzone) touch_input |= GAME_INPUT_LEFT;
+                if (dpad_dy > dpad_deadzone)  touch_input |= GAME_INPUT_DOWN;
+                if (dpad_dy < -dpad_deadzone) touch_input |= GAME_INPUT_UP;
+            }
+
+            // Button B (Fire)
+            float b_dx = fx - btn_b_cx;
+            float b_dy = fy - btn_b_cy;
+            if (std::sqrt(b_dx * b_dx + b_dy * b_dy) <= btn_r) {
+                touch_input |= GAME_INPUT_B;
+            }
+
+            // Button A (Jump)
+            float a_dx = fx - btn_a_cx;
+            float a_dy = fy - btn_a_cy;
+            if (std::sqrt(a_dx * a_dx + a_dy * a_dy) <= btn_r) {
+                touch_input |= GAME_INPUT_A;
+            }
+
+            // Select
+            float sel_dx = fx - sel_cx;
+            float sel_dy = fy - sel_cy;
+            if (std::sqrt(sel_dx * sel_dx + sel_dy * sel_dy) <= sys_r) {
+                touch_input |= GAME_INPUT_SELECT;
+            }
+
+            // Start
+            float start_dx = fx - start_cx;
+            float start_dy = fy - start_cy;
+            if (std::sqrt(start_dx * start_dx + start_dy * start_dy) <= sys_r) {
+                touch_input |= GAME_INPUT_START;
+            }
+        }
+    }
+
+    void render(SDL_Renderer *renderer, int win_w, int win_h) const {
+        if (!enabled) return;
+
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+
+        // Draw D-Pad cross
+        int dpad_x = static_cast<int>(0.16f * static_cast<float>(win_w));
+        int dpad_y = static_cast<int>(0.72f * static_cast<float>(win_h));
+        int dpad_arm_len = static_cast<int>(0.12f * static_cast<float>(win_h));
+        int dpad_arm_w = static_cast<int>(0.045f * static_cast<float>(win_h));
+
+        uint8_t dpad_alpha = (touch_input & (GAME_INPUT_RIGHT | GAME_INPUT_LEFT | GAME_INPUT_UP | GAME_INPUT_DOWN)) ? 140 : 60;
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, dpad_alpha);
+
+        SDL_FRect hbar = {
+            static_cast<float>(dpad_x - dpad_arm_len),
+            static_cast<float>(dpad_y - dpad_arm_w / 2),
+            static_cast<float>(dpad_arm_len * 2),
+            static_cast<float>(dpad_arm_w)
+        };
+        SDL_RenderFillRect(renderer, &hbar);
+
+        SDL_FRect vbar = {
+            static_cast<float>(dpad_x - dpad_arm_w / 2),
+            static_cast<float>(dpad_y - dpad_arm_len),
+            static_cast<float>(dpad_arm_w),
+            static_cast<float>(dpad_arm_len * 2)
+        };
+        SDL_RenderFillRect(renderer, &vbar);
+
+        // Action buttons A & B
+        auto draw_button = [&](float cx, float cy, float r, uint8_t alpha) {
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, alpha);
+            int icx = static_cast<int>(cx * static_cast<float>(win_w));
+            int icy = static_cast<int>(cy * static_cast<float>(win_h));
+            int ir = static_cast<int>(r * static_cast<float>(win_h));
+            SDL_FRect box = {
+                static_cast<float>(icx - ir),
+                static_cast<float>(icy - ir),
+                static_cast<float>(ir * 2),
+                static_cast<float>(ir * 2)
+            };
+            SDL_RenderFillRect(renderer, &box);
+        };
+
+        draw_button(0.80f, 0.75f, 0.055f, (touch_input & GAME_INPUT_B) ? 180 : 80);
+        draw_button(0.92f, 0.62f, 0.055f, (touch_input & GAME_INPUT_A) ? 180 : 80);
+
+        // System buttons Select & Start
+        auto draw_pill = [&](float cx, float cy, bool pressed) {
+            uint8_t alpha = pressed ? 160 : 70;
+            SDL_SetRenderDrawColor(renderer, 255, 255, 255, alpha);
+            SDL_FRect pill = {
+                static_cast<float>(cx * static_cast<float>(win_w) - 0.04f * static_cast<float>(win_w)),
+                static_cast<float>(cy * static_cast<float>(win_h) - 0.015f * static_cast<float>(win_h)),
+                static_cast<float>(0.08f * static_cast<float>(win_w)),
+                static_cast<float>(0.03f * static_cast<float>(win_h))
+            };
+            SDL_RenderFillRect(renderer, &pill);
+        };
+
+        draw_pill(0.40f, 0.90f, (touch_input & GAME_INPUT_SELECT) != 0);
+        draw_pill(0.60f, 0.90f, (touch_input & GAME_INPUT_START) != 0);
+
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+    }
 };
 
 static void print_usage(const char *prog_name) {
@@ -90,17 +271,40 @@ static bool parse_cli_args(int argc, char **argv, CliOptions &opts) {
 }
 
 static std::string find_default_rom() {
-    const char *candidates[] = {
+    std::vector<std::string> candidates = {
         "Contra (USA).nes",
         "contra.nes",
         "baserom.nes",
         "Contra.nes"
     };
-    for (const char *path : candidates) {
-        FILE *f = fopen(path, "rb");
+
+#if defined(__ANDROID__)
+    const char *ext_storage = SDL_GetAndroidExternalStoragePath();
+    if (ext_storage) {
+        candidates.push_back(std::string(ext_storage) + "/Contra (USA).nes");
+        candidates.push_back(std::string(ext_storage) + "/contra.nes");
+    }
+    char *pref_path = SDL_GetPrefPath("ReContra", "Game");
+    if (pref_path) {
+        candidates.push_back(std::string(pref_path) + "Contra (USA).nes");
+        candidates.push_back(std::string(pref_path) + "contra.nes");
+        SDL_free(pref_path);
+    }
+    candidates.push_back("/sdcard/Documents/Codes/ReContra/Contra (USA).nes");
+    candidates.push_back("/sdcard/Documents/Codes/ReContra/contra.nes");
+    candidates.push_back("/sdcard/Documents/Contra (USA).nes");
+    candidates.push_back("/sdcard/Documents/contra.nes");
+    candidates.push_back("/sdcard/Download/Contra (USA).nes");
+    candidates.push_back("/sdcard/Download/contra.nes");
+    candidates.push_back("/sdcard/Contra (USA).nes");
+    candidates.push_back("/sdcard/contra.nes");
+#endif
+
+    for (const auto &path : candidates) {
+        FILE *f = fopen(path.c_str(), "rb");
         if (f) {
             fclose(f);
-            return std::string(path);
+            return path;
         }
     }
     return "";
@@ -121,7 +325,16 @@ int main(int argc, char **argv) {
             fprintf(stderr, "distribute copyrighted game binaries.\n");
             fprintf(stderr, "Please place an authentic 'Contra (USA).nes' or 'contra.nes' in the\n");
             fprintf(stderr, "working directory, or specify the path via: --rom <path>\n");
+            fprintf(stderr, "On Android, select a ROM via file picker or copy to Documents/Codes/ReContra/\n");
             fprintf(stderr, "====================================================================\n");
+#if defined(__ANDROID__)
+            SDL_ShowSimpleMessageBox(
+                SDL_MESSAGEBOX_INFORMATION,
+                "ReContra - ROM Required",
+                "No Contra .nes ROM detected.\nPlease select an authentic Contra (USA).nes ROM file or place it in your Documents/Codes/ReContra folder.",
+                nullptr
+            );
+#endif
             return 1;
         }
     }
@@ -297,6 +510,12 @@ int main(int argc, char **argv) {
         SDL_ResumeAudioStreamDevice(audio_stream);
     }
 
+    // On-screen touch controls setup
+    TouchControls touch;
+#if defined(__ANDROID__)
+    touch.enabled = true;
+#endif
+
     bool running = true;
     SDL_Event event;
 
@@ -311,6 +530,12 @@ int main(int argc, char **argv) {
                 if (event.key.key == SDLK_ESCAPE) {
                     running = false;
                 }
+            } else if (event.type == SDL_EVENT_FINGER_DOWN) {
+                touch.on_finger_down(event.tfinger.fingerID, event.tfinger.x, event.tfinger.y);
+            } else if (event.type == SDL_EVENT_FINGER_MOTION) {
+                touch.on_finger_motion(event.tfinger.fingerID, event.tfinger.x, event.tfinger.y);
+            } else if (event.type == SDL_EVENT_FINGER_UP || event.type == SDL_EVENT_FINGER_CANCELED) {
+                touch.on_finger_up(event.tfinger.fingerID);
             }
         }
 
@@ -327,6 +552,9 @@ int main(int argc, char **argv) {
             if (keystates[SDL_SCANCODE_K] || keystates[SDL_SCANCODE_X] || keystates[SDL_SCANCODE_SPACE]) p1_input |= GAME_INPUT_A;
         }
 
+        // Merge touch controls
+        p1_input = static_cast<uint8_t>(p1_input | touch.touch_input);
+
         // Tick game runtime
         game_runtime_tick(&runtime, p1_input, 0, &ppu, &sound_engine, &apu);
 
@@ -339,6 +567,14 @@ int main(int argc, char **argv) {
         SDL_UpdateTexture(fb_texture, nullptr, ppu.framebuffer, DISPLAY_WIDTH * (int)sizeof(uint32_t));
         SDL_RenderClear(renderer);
         SDL_RenderTexture(renderer, fb_texture, nullptr, nullptr);
+
+        // Render virtual touch overlay if enabled
+        if (touch.enabled) {
+            int win_w = 0, win_h = 0;
+            SDL_GetRenderOutputSize(renderer, &win_w, &win_h);
+            touch.render(renderer, win_w, win_h);
+        }
+
         SDL_RenderPresent(renderer);
 
         frame_count++;
