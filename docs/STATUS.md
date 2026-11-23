@@ -4,11 +4,11 @@
 
 ---
 
-## 1. Current Phase: Godot 4 Migration — Step 2 of 5 (CHR RLE Decompressor & Level Loader)
+## 1. Current Phase: Godot 4 Migration — Step 3 of 5 (2C02 PPU Renderer & OAM Sprite Engine)
 
 - **Phase Objective**: Migrate engine from C23/SDL3 to a clean-room Godot 4 (GDScript) architecture.
-- **Current Milestone**: Step 2 of 5 — RLE CHR Decompressor & Level Loader (COMPLETED & 100% Verified).
-- **Status**: Implemented `scripts/rom/chr_extractor.gd` and `scripts/rom/level_loader.gd`; headless verification test suite passing 116/116 assertions.
+- **Current Milestone**: Step 3 of 5 — 2C02 PPU Software Framebuffer & 8x16 OAM Sprite Engine (COMPLETED & 100% Verified).
+- **Status**: Implemented `scripts/render/ppu_renderer.gd`; headless verification test suite passing 133/133 assertions with deterministic framebuffer hash `0x820ABB35`.
 
 ---
 
@@ -23,13 +23,22 @@
   - [x] Implement `scripts/rom/chr_extractor.gd` (Bank 7 pointers $C950/$C8E3, 4 RLE commands, bit-reversal, 8KB/16KB VRAM decompression).
   - [x] Implement `scripts/rom/level_loader.gd` (Bank 2 $B319 headers, Bank 3 supertiles, Bank 7 $D225 palettes, 3-case screen RLE decompression).
   - [x] Add comprehensive tests to `scripts/tests/run_headless_tests.gd` (116/116 passing).
-- [ ] **Step 3: PPU 256x240 Software / Tilemap Renderer & 8x16 OAM Sprite Engine**
+- [x] **Step 3: PPU 256x240 Software / Tilemap Renderer & 8x16 OAM Sprite Engine**
+  - [x] Implement `scripts/render/ppu_renderer.gd` (16KB VRAM, Vertical/Horizontal mirroring, $3F10-$3F1C palette folding, 256x240 RGBA8 buffer to Image/ImageTexture).
+  - [x] Implement horizontal (8x7 supertiles), vertical (8x8 supertiles), and corridor perspective nametable + attribute table unpacking ($2000/$2400 and $23C0/$27C0).
+  - [x] Implement 64 8x16 OAM sprite rasterizer with H/V flip, background priority masking, and authentic $4C cyclic 8-sprite scanline limit vs flicker-free toggle.
+  - [x] Add PPU rendering and deterministic CRC-32 verification tests to `scripts/tests/run_headless_tests.gd` (133/133 passing, CRC-32 `0x820ABB35`).
 - [ ] **Step 4: 2A03 APU Synthesizer & 6-Slot Audio Engine**
 - [ ] **Step 5: Physics, Player State Machine & Deterministic Replay Verification**
 
 ---
 
 ## 3. Session Change Log
+- **2026-11-23**: Executed Step 3 of 5 for Godot 4 (GDScript) Clean-Room Migration:
+  1. Implemented `scripts/render/ppu_renderer.gd` outputting 256x240 RGBA8 framebuffer convertible to Godot `Image` and `ImageTexture`, emulating 16 KB VRAM, nametable mirroring, 32-byte palette RAM folding, and fast precomputed 256-byte RGBA palette cache.
+  2. Built dual-nametable horizontal (8x7 supertiles), vertical (8x8 supertiles), and 3D indoor perspective corridor unpackers populating nametables at `$2000/$2400` and attribute tables at `$23C0/$27C0`.
+  3. Built 64 8x16 OAM sprite rasterizer with H/V flip, background priority masking, and toggleable authentic 8-sprite per scanline limit with cyclic `$4C` priority advance per frame.
+  4. Expanded `scripts/tests/run_headless_tests.gd` with 17 new unit tests verifying PPU mirroring, Stage 1 background rendering (>33k active colored pixels), sprite flip and priority flags, cyclic `$4C` priority offset advance, and deterministic framebuffer CRC-32 (`0x820ABB35`) across 133 passing assertions.
 - **2026-11-23**: Executed Step 2 of 5 for Godot 4 (GDScript) Clean-Room Migration:
   1. Implemented `scripts/rom/chr_extractor.gd` resolving Bank 7 graphics pointer tables ($C950 and $C8E3), 4 RLE stream commands ($FF end, $7F PPU jump, < $7F run repeat, > $7F literal stream), and horizontal bit-reversal (`reverse_bits_u8`).
   2. Implemented `scripts/rom/level_loader.gd` parsing 32-byte Level Headers from Bank 2 ($B319), 4x4 supertiles from Bank 3, and 110 3-color palette sets from Bank 7 ($D225), complete with 2C02 NTSC master palette RGBA8 conversion and authentic 3-case RLE screen supertile decompression.

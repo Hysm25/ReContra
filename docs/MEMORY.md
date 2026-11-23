@@ -290,4 +290,14 @@ Direction Codes:
   3. Implemented authentic 3-case screen supertile decompression (`decompress_screen_supertiles`) matching disassembly Bank 7 algorithm (`< $80` literal, `$80..$EF` repeat, `>= $F0` row copy).
   4. Expanded headless verification suite `scripts/tests/run_headless_tests.gd` covering all 27 individual graphic codes, 13 level graphic sets, 8 level headers, palettes, supertiles, and RLE screen decompression (116/116 tests passing).
 
+### ADR-018: Clean-Room 2C02 PPU Software Framebuffer, Dual-Nametable Unpacker & 8x16 OAM Sprite Engine Architecture
+- **Context**: Accurate NES visual presentation requires a 256x240 software scanline rasterizer emulating 16 KB VRAM, Vertical/Horizontal nametable mirroring, palette RAM mirror folding, and authentic 8x16 sprite composition with hardware priority cycling.
+- **Decision**:
+  1. Implemented generic `PpuRenderer` (`scripts/render/ppu_renderer.gd`) outputting a 256x240 RGBA8 `PackedByteArray` framebuffer directly convertible to Godot `Image` (`Image.create_from_data`) and `ImageTexture` (`ImageTexture.create_from_image`).
+  2. Emulated 16 KB VRAM with full Vertical and Horizontal nametable mirroring and 32-byte Palette RAM folding (`$3F10/$3F14/$3F18/$3F1C` folded to `$3F00/$3F04/$3F08/$3F0C`).
+  3. Implemented dual-nametable supertile unpacking for horizontal stages (8x7 supertiles per screen), vertical stages (8x8 supertiles per screen), and 3D indoor perspective corridor modes directly targeting nametables at `$2000/$2400` and attribute tables at `$23C0/$27C0`.
+  4. Implemented 64 8x16 OAM sprite rasterizer supporting horizontal and vertical flipping, background priority masking (sprites behind non-zero background pixels), and toggleable scanline limit (authentic 8-sprite per scanline limit with cyclic `$4C` priority advance per frame vs unlimited flicker-free presentation).
+  5. Verified deterministic dual-nametable scroll framebuffer CRC-32 (`0x820ABB35`) across 133 passing test assertions in `scripts/tests/run_headless_tests.gd`.
+
+
 
