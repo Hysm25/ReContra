@@ -7,9 +7,9 @@
 ## 1. Context Injections
 - **User Profile & Environment**: [USER.md](file:///root/.gemini/antigravity-cli/brain/8340af84-b171-4a71-a44a-1f5b5d3cc80d/USER.md) (Global Rule)
 - **Assistant Persona & Guardrails**: [SOUL.md](file:///root/.gemini/antigravity-cli/brain/8340af84-b171-4a71-a44a-1f5b5d3cc80d/SOUL.md) (Global Rule)
-- **Persistent Memory & Quirks (Elephant)**: [docs/MEMORY.md](file:///sdcard/Documents/Codes/ReContra/docs/MEMORY.md)
+- **Persistent Technical Memory & ADRs**: [docs/MEMORY.md](file:///sdcard/Documents/Codes/ReContra/docs/MEMORY.md)
 - **Architecture & System Design**: [docs/ARCHITECTURE.md](file:///sdcard/Documents/Codes/ReContra/docs/ARCHITECTURE.md)
-- **Project Progress & Plan (Goldfish)**: [docs/STATUS.md](file:///sdcard/Documents/Codes/ReContra/docs/STATUS.md)
+- **Implementation Roadmap & Status**: [docs/STATUS.md](file:///sdcard/Documents/Codes/ReContra/docs/STATUS.md)
 
 ---
 
@@ -60,15 +60,15 @@ ctest --test-dir build --output-on-failure
 
 ---
 
-## 4. EGM (Elephant & Goldfish Memory) Maintenance Protocol
+## 4. Repository Documentation & State Protocol
 
-To ensure continuous, drift-free execution across autonomous sessions:
+`docs/STATUS.md` and `docs/MEMORY.md` serve as the sole, self-contained project tracking and memory files within the repository. To ensure continuous, drift-free execution across autonomous sessions:
 
-1. **Elephant Protocol (`docs/MEMORY.md`)**:
-   - Persists long-term, immutable architectural decisions (ADRs), verified NES RAM addresses, UNROM bank layouts, and disassembly formulas.
-   - Any newly verified disassembly symbol or design decision must be appended to `docs/MEMORY.md` immediately.
+1. **Long-Term Memory (`docs/MEMORY.md`)**:
+   - Persists long-term, immutable architectural decision records (ADRs), verified NES RAM addresses, UNROM bank layouts, disassembly formulas, and hardware quirks.
+   - Any newly verified hardware symbol, register behavior, or architectural decision must be appended to `docs/MEMORY.md` immediately.
 
-2. **Goldfish Protocol (`docs/STATUS.md`)**:
-   - Manages active session short-term state, sprint tasks, checklist items, and verification status.
-   - Every session begins by reading `docs/STATUS.md` and `docs/MEMORY.md`.
-   - Before ending a turn, the agent must update `docs/STATUS.md` with completed items and current build/test verification results.
+2. **Active Milestone Tracking (`docs/STATUS.md`)**:
+   - Manages active session sprint milestones, technical task checklists, and verification results.
+   - Every development session begins by reading `docs/STATUS.md` and `docs/MEMORY.md` to identify the current milestone and constraints.
+   - Before completing work, the agent must update `docs/STATUS.md` with completed checklist items, session change logs, and current build/test verification status.

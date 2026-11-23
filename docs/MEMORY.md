@@ -1,6 +1,6 @@
 # Persistent Disassembly Memory & ADRs (`docs/MEMORY.md`)
 
-> **Long-Term Memory (Elephant Protocol)**: Persists verified Contra NES disassembly memory maps, UNROM bank layouts, mathematical constants, and Architectural Decision Records (ADRs).
+> **Long-Term Technical Memory**: Persists verified Contra NES disassembly memory maps, UNROM bank layouts, mathematical constants, and Architectural Decision Records (ADRs).
 
 ---
 

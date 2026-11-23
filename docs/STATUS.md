@@ -1,6 +1,6 @@
 # Implementation Roadmap & Status (`docs/STATUS.md`)
 
-> **Active Session State (Goldfish Protocol)**: Tracks current sprint milestone, implementation checklist, and verification status across development sessions.
+> **Active Implementation State**: Tracks current sprint milestone, implementation checklist, and verification status across development sessions.
 
 ---
 

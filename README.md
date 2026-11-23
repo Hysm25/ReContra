@@ -31,10 +31,10 @@ The goal of this project is a 100% faithful, frame-accurate simulation of the au
 
 ## Documentation & Architecture
 
-- **[AGENTS.md](AGENTS.md)**: Global execution blueprint, fish shell templates, hardware constraints (Sandy Bridge AVX-only, ARM64 PRoot), and EGM memory protocol.
+- **[AGENTS.md](AGENTS.md)**: Global execution blueprint, fish shell templates, hardware constraints (Sandy Bridge AVX-only, ARM64 PRoot), and repository documentation protocol.
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**: Modular system architecture (`rom_loader`, `chr_extractor`, `ppu_renderer`, `apu_audio`, `game_engine`, `input_system`).
-- **[docs/STATUS.md](docs/STATUS.md)**: Phased implementation roadmap and active session checklist (Goldfish Protocol).
-- **[docs/MEMORY.md](docs/MEMORY.md)**: Technical reference with verified UNROM bank mappings (Banks 0–7), NES RAM map (`$0000`–`$07FF`), velocity tables, and ADRs (Elephant Protocol).
+- **[docs/STATUS.md](docs/STATUS.md)**: Phased implementation roadmap and active session milestone checklist.
+- **[docs/MEMORY.md](docs/MEMORY.md)**: Technical reference with verified UNROM bank mappings (Banks 0–7), NES RAM map (`$0000`–`$07FF`), velocity tables, and Architectural Decision Records (ADRs).
 
 ---
 
