@@ -61,6 +61,18 @@ ReconResult level_load_palettes(const RomData *rom, uint8_t level, uint8_t palet
  */
 ReconResult level_read_supertile(const RomData *rom, uint16_t supertile_base_ptr, uint8_t supertile_id, SupertileDef *out_supertile);
 
+/*
+ * Decompresses screen supertile indices (56 for horizontal, 64 for vertical)
+ * from Bank 2 dynamically using authentic NES RLE decompression routine.
+ */
+ReconResult level_decompress_screen_supertiles(
+    const RomData *rom,
+    const LevelHeader *hdr,
+    uint8_t screen_index,
+    uint8_t *out_supertiles,
+    size_t out_size
+);
+
 #ifdef __cplusplus
 }
 #endif

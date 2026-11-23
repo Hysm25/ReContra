@@ -90,7 +90,7 @@ static void test_player_aiming(const RomData *rom) {
     p.state = PLAYER_STATE_NORMAL;
     p.is_jumping = false;
     p.world_x = 48;
-    p.world_y = 128;
+    p.world_y = 80;
     p.invincibility_timer = 0;
 
     // Test aiming right
@@ -152,13 +152,13 @@ static void test_player_jumping_physics(const RomData *rom) {
     TEST_ASSERT(res == RECON_OK);
     p.state = PLAYER_STATE_NORMAL;
     p.world_x = 48;
-    p.world_y = 128; // Start on floor
+    p.world_y = 80; // Start on floor
 
     // Initial A button press triggers Jump and integrates 1 frame of upward motion
     player_update(&p, GAME_INPUT_A, GAME_INPUT_A, 0, &grid, nullptr, nullptr);
     TEST_ASSERT(p.is_jumping);
     TEST_ASSERT(p.vel_y_fast < 0);
-    TEST_ASSERT(p.world_y < 128);
+    TEST_ASSERT(p.world_y < 80);
 
     uint16_t min_y = p.world_y;
     int frames = 0;
@@ -175,9 +175,9 @@ static void test_player_jumping_physics(const RomData *rom) {
 
         if (p.vel_y_fast >= 0 && !reached_apex) {
             reached_apex = true;
-            printf("  Jump Apex reached at frame %d: start Y=128 -> apex Y=%u (delta = %d px)\n",
-                   frames, min_y, 128 - (int)min_y);
-            TEST_ASSERT(min_y < 128);
+            printf("  Jump Apex reached at frame %d: start Y=80 -> apex Y=%u (delta = %d px)\n",
+                   frames, min_y, 80 - (int)min_y);
+            TEST_ASSERT(min_y < 80);
         }
 
         if (!p.is_jumping) {
@@ -206,7 +206,7 @@ static void test_player_drop_down_and_damage(const RomData *rom) {
     TEST_ASSERT(res == RECON_OK);
     p.state = PLAYER_STATE_NORMAL;
     p.world_x = 48;
-    p.world_y = 128;
+    p.world_y = 80;
     p.invincibility_timer = 0;
 
     // Test drop down
@@ -217,7 +217,7 @@ static void test_player_drop_down_and_damage(const RomData *rom) {
     }
 
     // Test take hit & damage recoil
-    player_spawn(&p, 48, 128);
+    player_spawn(&p, 48, 80);
     p.state = PLAYER_STATE_NORMAL;
     p.invincibility_timer = 0;
     uint8_t initial_lives = p.lives;
@@ -289,6 +289,65 @@ static void test_game_runtime_simulation(const RomData *rom) {
     printf("[PASS] GameRuntime Simulation verified.\n");
 }
 
+static void test_player_oam_mapping(const RomData *rom) {
+    printf("[TEST] Testing Player OAM Sprite Tile & Palette Mapping from ROM...\n");
+
+    Player p1, p2;
+    ReconResult res = player_init(&p1, 0, rom);
+    TEST_ASSERT(res == RECON_OK);
+    res = player_init(&p2, 1, rom);
+    TEST_ASSERT(res == RECON_OK);
+
+    uint8_t oam[256];
+
+    // 1. Standing Idle State
+    p1.state = PLAYER_STATE_NORMAL;
+    p1.screen_x = 64;
+    p1.screen_y = 100;
+    p1.invincibility_timer = 0;
+    memset(oam, 0xFF, sizeof(oam));
+    player_render_oam(&p1, oam, 0);
+    // Player 1 sprite palette must be palette 0 ($3F11-$3F13)
+    TEST_ASSERT((oam[2] & 0x03u) == 0x00u);
+    // Upper torso tile index should match authentic standing sprite ($94)
+    TEST_ASSERT(oam[1] == 0x94u);
+
+    // Player 2 sprite palette must be palette 1 ($3F15-$3F17)
+    p2.state = PLAYER_STATE_NORMAL;
+    p2.screen_x = 96;
+    p2.screen_y = 100;
+    p2.invincibility_timer = 0;
+    player_render_oam(&p2, oam, 8);
+    TEST_ASSERT((oam[8 * 4 + 2] & 0x03u) == 0x01u);
+    TEST_ASSERT(oam[8 * 4 + 1] == 0x94u);
+
+    // 2. Jumping (Curled Somersault) State
+    p1.is_jumping = true;
+    p1.anim_timer = 0;
+    memset(oam, 0xFF, sizeof(oam));
+    player_render_oam(&p1, oam, 0);
+    // Somersault frame 1 tile ($44)
+    TEST_ASSERT(oam[1] == 0x44u);
+
+    // 3. Crouching (Prone) State
+    p1.is_jumping = false;
+    p1.is_crouching = true;
+    memset(oam, 0xFF, sizeof(oam));
+    player_render_oam(&p1, oam, 0);
+    // Prone tile ($9C)
+    TEST_ASSERT(oam[1] == 0x9Cu);
+
+    // 4. Water Submerged Dive State
+    p1.is_crouching = false;
+    p1.water_state = 2; // Submerged
+    memset(oam, 0xFF, sizeof(oam));
+    player_render_oam(&p1, oam, 0);
+    // Water submerged tile ($DE)
+    TEST_ASSERT(oam[1] == 0xDEu);
+
+    printf("[PASS] Player OAM Sprite Tile & Palette Mapping verified.\n");
+}
+
 int main(int argc, char **argv) {
     const char *rom_path = (argc > 1) ? argv[1] : "Contra (USA).nes";
 
@@ -303,6 +362,7 @@ int main(int argc, char **argv) {
     test_player_aiming(&rom);
     test_player_jumping_physics(&rom);
     test_player_drop_down_and_damage(&rom);
+    test_player_oam_mapping(&rom);
     test_game_runtime_simulation(&rom);
 
     rom_free(&rom);

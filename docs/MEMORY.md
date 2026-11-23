@@ -240,3 +240,36 @@ Direction Codes:
      - **Rapid Fire (`R`)**: Bit 4 modifier (`0x10`) selecting higher velocity tables (4 px/frame standard/M, 2 px/frame F, rapid S lookups).
      - **Barrier (`B`)**: Invincibility state timer (`0x80`) ticking every 8th frame (`frame_counter & 7 == 0`), granting complete damage immunity and palette flashing.
   4. Integrated background solid wall collision checking transitioning bullets to impact routine (`routine = 3`, 6-frame decay, tile `0x47`), screen scrolling delta compensation, and OAM sprite rendering with authentic alternating 8-slot flicker cycle or modern flicker-free presentation. Verified 100% CTest pass rate across 8 test suites.
+
+
+### ADR-013: Screen Supertile RLE Decompression & Authentic Nametable / Attribute Alignment
+- **Context**: Stage 1 screens previously rendered with scrambled tile blocks and misaligned palette attributes due to reading screen lists as uncompressed 56-byte arrays with an erroneous 2-row downward HUD offset.
+- **Decision**:
+  1. Implemented authentic RLE screen decompression routine `level_decompress_screen_supertiles()` matching NES Contra Bank 7 algorithm (`bank7.asm:6626-6675`):
+     - `b < 0x80`: Literal supertile index.
+     - `0x80 <= b < 0xF0`: Repeat next byte `(b & 0x7F)` times.
+     - `b >= 0xF0`: Copy 8 supertiles from row `(b & 0x0F) * 8` already decompressed in the screen buffer.
+  2. Fixed nametable tile row indexing: removed 2-row offset, writing 28 tile rows (7 supertile rows x 4 tiles) starting at PPU `$2000` (NT0) / `$2400` (NT1) matching authentic NES Contra PPU write initialization (`PPU_WRITE_ADDRESS_HIGH_BYTE = $20`). Rows 28-29 are cleared to empty.
+  3. Fixed attribute table quadrant mapping: removed 1-row offset, writing 7 attribute rows (0..6) directly into `$23C0` / `$27C0` from Bank 3 `level_1_palette_data` (`hdr->palette_ptr + supertile_id`).
+  4. Updated `collision_grid_unpack_screen()` to consume decompressed supertiles, synchronizing the 128-byte background collision grid with authentic stage terrain.
+
+### ADR-014: Player OAM Sprite Tile Unpacking & Palette Assignment
+- **Context**: Player was previously rendered with placeholder tile `0x00`, failing to display authentic torso/legs animations, somersault rotations, water diving, or player palette distinction.
+- **Decision**:
+  1. Implemented dynamic Bank 1 sprite unpacker querying `sprite_ptr_tbl_0` at CPU `$B030`, parsing 4-byte OAM entries (`[rel_y, tile_idx, tile_attr, rel_x]`) with `$80` shared-sprite chaining (`player_bottom`, `player_walking_1_bottom`).
+  2. Mapped player state machine to authentic sprite codes:
+     - Standing / Idle: Torso `0x94`/Legs `0x3C` (`sprite_0f`).
+     - Running: 6-frame animation sequence (`0x02, 0x03, 0x04, 0x05, 0x03, 0x06`) cycling every 8 frames.
+     - Somersault Jump: Curled frames `0x08` (tile `0x44`) and `0x09` (tile `0x4C`) alternating every 6 frames in air.
+     - Crouching / Prone: Prone tile `0x9C` (`sprite_17`).
+     - Water: Surface swimming `0x1D` (tile `0xDE`/`0x94`) and submerged dive `0x19` (tile `0xDE`).
+     - Dying / Recoil: Arc frame `0x0A` (tile `0x68`).
+  3. Assigned authentic sprite palette bits: Player 1 maps to Sprite Palette 0 (`$3F11-$3F13`), Player 2 maps to Sprite Palette 1 (`$3F15-$3F17`).
+  4. Implemented authentic horizontal flipping: inverts bit 6 (`0x40`) and mirrors relative X offset via `-8 - rel_x`.
+
+### ADR-015: Android Viewport Orientation & Window-Space Touch Control Overlay
+- **Context**: Virtual touch controls on Android/touchscreens were misaligned or rendered off-screen when rendered within the integer-scaled logical presentation viewport, and letterbox margins could flicker white.
+- **Decision**:
+  1. Enforced strict landscape orientation in `android/app/src/main/AndroidManifest.xml` (`android:screenOrientation="landscape"`).
+  2. Explicitly cleared the SDL renderer to pure black (`SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255); SDL_RenderClear(renderer);`) on every frame, eliminating margin flickering.
+  3. Decoupled touch controls overlay rendering from logical presentation scaling: temporarily disables logical presentation before drawing the touch overlay, rendering buttons and D-Pad directly in window pixel coordinates matching normalized touch event coordinates. Enabled touch overlay by default on Android and via `--touch` CLI flag.

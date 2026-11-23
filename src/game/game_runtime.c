@@ -188,9 +188,9 @@ void game_runtime_tick(GameRuntime *rt, uint8_t p1_input, uint8_t p2_input,
         memset(ppu->oam, 0xFF, sizeof(ppu->oam));
         player_render_oam(&rt->players[0], ppu->oam, 0);
         if (rt->player_mode == 1) {
-            player_render_oam(&rt->players[1], ppu->oam, 2);
+            player_render_oam(&rt->players[1], ppu->oam, 8);
         }
-        bullet_pool_render_oam(&rt->bullet_pool, ppu->oam, (rt->player_mode == 1 ? 4 : 2), rt->frame_counter);
+        bullet_pool_render_oam(&rt->bullet_pool, ppu->oam, (rt->player_mode == 1 ? 16 : 8), rt->frame_counter);
 
         ppu_render_frame(ppu);
     }
@@ -209,9 +209,9 @@ void game_runtime_render(GameRuntime *rt, Ppu2C02 *ppu) {
     memset(ppu->oam, 0xFF, sizeof(ppu->oam));
     player_render_oam(&rt->players[0], ppu->oam, 0);
     if (rt->player_mode == 1) {
-        player_render_oam(&rt->players[1], ppu->oam, 2);
+        player_render_oam(&rt->players[1], ppu->oam, 8);
     }
-    bullet_pool_render_oam(&rt->bullet_pool, ppu->oam, (rt->player_mode == 1 ? 4 : 2), rt->frame_counter);
+    bullet_pool_render_oam(&rt->bullet_pool, ppu->oam, (rt->player_mode == 1 ? 16 : 8), rt->frame_counter);
 
     ppu_render_frame(ppu);
 }

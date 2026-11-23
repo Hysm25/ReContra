@@ -12,30 +12,25 @@ ReconResult nametable_unpack_screen_horizontal(
         return RECON_ERR_NULL_PTR;
     }
 
-    uint16_t nt_base = (nametable_idx == 1) ? 0x2400u : 0x2000u;
-    uint16_t screen_tbl_addr = (uint16_t)(hdr->screen_ptr + (uint16_t)(screen_index * 2u));
-    uint16_t screen_data_addr = 0;
-
-    ReconResult res = rom_read_prg_word(rom, LEVEL_HEADER_BANK, screen_tbl_addr, &screen_data_addr);
+    uint16_t nt_base = (nametable_idx == 1u) ? 0x2400u : 0x2000u;
+    uint8_t supertiles[56];
+    ReconResult res = level_decompress_screen_supertiles(rom, hdr, screen_index, supertiles, sizeof(supertiles));
     if (res != RECON_OK) {
         return res;
     }
 
-    /* Clear first 2 rows (64 bytes) reserved for status/HUD text */
-    for (uint16_t i = 0; i < 64u; ++i) {
+    /* Clear entire 1024-byte nametable and attribute table (rows 28-29 empty) */
+    for (uint16_t i = 0; i < 1024u; ++i) {
         ppu_write_vram(ppu, (uint16_t)(nt_base + i), 0x00u);
     }
 
     /*
      * Horizontal levels: 8 columns x 7 rows = 56 supertiles per screen.
-     * Supertiles start at Nametable row 2 (leaving rows 0 and 1 for status line).
+     * Authentic NES Contra writes supertiles starting at row 0 (PPU $2000 / $2400).
      */
     for (uint16_t sr = 0; sr < HORIZONTAL_SUPERTILE_ROWS; ++sr) {
         for (uint16_t sc = 0; sc < SUPERTILES_PER_ROW; ++sc) {
-            uint16_t st_list_offset = (uint16_t)(sr * SUPERTILES_PER_ROW + sc);
-            uint8_t supertile_id = 0;
-            res = rom_read_prg_byte(rom, LEVEL_HEADER_BANK, (uint16_t)(screen_data_addr + st_list_offset), &supertile_id);
-            if (res != RECON_OK) return res;
+            uint8_t supertile_id = supertiles[sr * SUPERTILES_PER_ROW + sc];
 
             SupertileDef st_def;
             res = level_read_supertile(rom, hdr->supertile_ptr, supertile_id, &st_def);
@@ -48,7 +43,7 @@ ReconResult nametable_unpack_screen_horizontal(
 
             /* Write 4x4 tiles to Nametable */
             for (uint16_t r = 0; r < SUPERTILE_HEIGHT_TILES; ++r) {
-                uint16_t nt_row = (uint16_t)(2u + sr * SUPERTILE_HEIGHT_TILES + r);
+                uint16_t nt_row = (uint16_t)(sr * SUPERTILE_HEIGHT_TILES + r);
                 if (nt_row >= 30u) break;
 
                 for (uint16_t c = 0; c < SUPERTILE_WIDTH_TILES; ++c) {
@@ -62,9 +57,8 @@ ReconResult nametable_unpack_screen_horizontal(
              * Populate Attribute Table ($23C0 or $27C0).
              * Each supertile spans 4x4 tiles (1 attribute byte).
              */
-            uint16_t attr_row = (uint16_t)(sr + 1u); /* Shifted by HUD rows */
-            if (attr_row < 8u) {
-                uint16_t attr_addr = (uint16_t)(nt_base + 960u + attr_row * 8u + sc);
+            if (sr < 7u) {
+                uint16_t attr_addr = (uint16_t)(nt_base + 960u + sr * 8u + sc);
                 ppu_write_vram(ppu, attr_addr, st_attr);
             }
         }
@@ -84,13 +78,16 @@ ReconResult nametable_unpack_screen_vertical(
         return RECON_ERR_NULL_PTR;
     }
 
-    uint16_t nt_base = (nametable_idx == 1) ? 0x2400u : 0x2000u;
-    uint16_t screen_tbl_addr = (uint16_t)(hdr->screen_ptr + (uint16_t)(screen_index * 2u));
-    uint16_t screen_data_addr = 0;
-
-    ReconResult res = rom_read_prg_word(rom, LEVEL_HEADER_BANK, screen_tbl_addr, &screen_data_addr);
+    uint16_t nt_base = (nametable_idx == 1u) ? 0x2400u : 0x2000u;
+    uint8_t supertiles[64];
+    ReconResult res = level_decompress_screen_supertiles(rom, hdr, screen_index, supertiles, sizeof(supertiles));
     if (res != RECON_OK) {
         return res;
+    }
+
+    /* Clear entire 1024-byte nametable and attribute table */
+    for (uint16_t i = 0; i < 1024u; ++i) {
+        ppu_write_vram(ppu, (uint16_t)(nt_base + i), 0x00u);
     }
 
     /*
@@ -98,10 +95,7 @@ ReconResult nametable_unpack_screen_vertical(
      */
     for (uint16_t sr = 0; sr < VERTICAL_SUPERTILE_ROWS; ++sr) {
         for (uint16_t sc = 0; sc < SUPERTILES_PER_ROW; ++sc) {
-            uint16_t st_list_offset = (uint16_t)(sr * SUPERTILES_PER_ROW + sc);
-            uint8_t supertile_id = 0;
-            res = rom_read_prg_byte(rom, LEVEL_HEADER_BANK, (uint16_t)(screen_data_addr + st_list_offset), &supertile_id);
-            if (res != RECON_OK) return res;
+            uint8_t supertile_id = supertiles[sr * SUPERTILES_PER_ROW + sc];
 
             SupertileDef st_def;
             res = level_read_supertile(rom, hdr->supertile_ptr, supertile_id, &st_def);

@@ -2,6 +2,8 @@
 #include <string.h>
 
 #define AIM_TABLE_ROM_OFFSET 0x1D93Au /* PRG Bank 7 CPU $D93A */
+#define SPRITE_PTR_TBL_0_ADDR 0xB030u /* PRG Bank 1 CPU $B030 */
+#define SPRITE_BANK           1u
 
 ReconResult player_init(Player *player, uint8_t player_id, const RomData *rom) {
     if (!player) {
@@ -12,6 +14,7 @@ ReconResult player_init(Player *player, uint8_t player_id, const RomData *rom) {
     player->player_id = player_id;
     player->lives = PLAYER_DEFAULT_LIVES;
     player->current_weapon = 0;
+    player->rom = rom;
 
     if (rom && rom->prg_data && AIM_TABLE_ROM_OFFSET + 64u <= rom->prg_size) {
         player->aim_table = rom->prg_data + AIM_TABLE_ROM_OFFSET;
@@ -228,14 +231,27 @@ void player_update(Player *player, uint8_t input, uint8_t input_diff,
                 if ((input & 0x0Fu) == GAME_INPUT_DOWN) {
                     player->is_crouching = true;
                     player->vel_x = 0;
+                    player->anim_timer = 0;
+                    player->anim_frame = 0;
                 } else {
                     player->is_crouching = false;
                     if (input & GAME_INPUT_RIGHT) player->vel_x = 1;
                     else if (input & GAME_INPUT_LEFT) player->vel_x = -1;
                     else player->vel_x = 0;
+
+                    if (player->vel_x != 0) {
+                        player->anim_timer++;
+                        if ((player->anim_timer & 0x07u) == 0) {
+                            player->anim_frame = (uint8_t)((player->anim_frame + 1u) % 6u);
+                        }
+                    } else {
+                        player->anim_timer = 0;
+                        player->anim_frame = 0;
+                    }
                 }
             } else {
                 /* Mid-air steering */
+                player->anim_timer++;
                 if (input & GAME_INPUT_RIGHT) player->vel_x = 1;
                 else if (input & GAME_INPUT_LEFT) player->vel_x = -1;
                 else player->vel_x = 0;
@@ -334,31 +350,135 @@ void player_render_oam(const Player *player, uint8_t *oam_buffer, size_t oam_ent
         return;
     }
 
+    uint8_t sprite_code = 0x0Fu; /* Default standing idle */
+    if (player->state == PLAYER_STATE_DYING) {
+        sprite_code = 0x0Au; /* Dying arc */
+    } else if (player->water_state > 0) {
+        if (player->water_state == 2) {
+            sprite_code = 0x19u; /* Submerged dive */
+        } else {
+            sprite_code = 0x1Du; /* Water surface swimming */
+        }
+    } else if (player->is_jumping || player->edge_fall_code > 0) {
+        /* Somersault curled in air: alternate between 0x08 and 0x09 every 6 frames */
+        sprite_code = ((player->anim_timer / 6u) & 1u) ? 0x09u : 0x08u;
+    } else if (player->is_crouching) {
+        sprite_code = 0x17u; /* Prone crouching */
+    } else if (player->vel_x != 0) {
+        /* Running 6-frame sequence from authentic player_frame_sprite_tbl_00 */
+        static const uint8_t run_sprites[6] = { 0x02u, 0x03u, 0x04u, 0x05u, 0x03u, 0x06u };
+        sprite_code = run_sprites[player->anim_frame % 6u];
+    } else {
+        if (player->aim_dir == AIM_DIR_UP_FACING_RIGHT || player->aim_dir == AIM_DIR_UP_FACING_LEFT) {
+            sprite_code = 0x16u; /* Aim straight up */
+        } else {
+            sprite_code = 0x0Fu; /* Standing */
+        }
+    }
+
+    /* Unpack dynamic sprite definitions from Bank 1 sprite_ptr_tbl_0 ($B030) */
+    if (player->rom != NULL) {
+        uint16_t ptr_entry = (uint16_t)(SPRITE_PTR_TBL_0_ADDR + (uint16_t)((uint16_t)(sprite_code - 1u) * 2u));
+        uint16_t sprite_addr = 0;
+        ReconResult res = rom_read_prg_word(player->rom, SPRITE_BANK, ptr_entry, &sprite_addr);
+
+        if (res == RECON_OK && sprite_addr >= 0x8000u) {
+            uint8_t num_tiles = 0;
+            res = rom_read_prg_byte(player->rom, SPRITE_BANK, sprite_addr, &num_tiles);
+
+            if (res == RECON_OK && num_tiles > 0 && num_tiles < 16u) {
+                uint16_t read_addr = (uint16_t)(sprite_addr + 1u);
+                size_t tiles_written = 0;
+                size_t oam_idx = oam_entry_start;
+
+                while (tiles_written < (size_t)num_tiles && oam_idx < 64u) {
+                    uint8_t b0 = 0;
+                    res = rom_read_prg_byte(player->rom, SPRITE_BANK, read_addr, &b0);
+                    if (res != RECON_OK) break;
+                    read_addr = (uint16_t)(read_addr + 1u);
+
+                    if (b0 == 0x80u) {
+                        /* Shared sprite continuation address */
+                        uint16_t sub_addr = 0;
+                        res = rom_read_prg_word(player->rom, SPRITE_BANK, read_addr, &sub_addr);
+                        if (res != RECON_OK) break;
+                        read_addr = sub_addr;
+                        continue;
+                    }
+
+                    int8_t rel_y = (int8_t)b0;
+                    uint8_t tile_idx = 0;
+                    uint8_t tile_attr = 0;
+                    uint8_t b3 = 0;
+
+                    res = rom_read_prg_byte(player->rom, SPRITE_BANK, read_addr, &tile_idx);
+                    if (res != RECON_OK) break;
+                    read_addr = (uint16_t)(read_addr + 1u);
+
+                    res = rom_read_prg_byte(player->rom, SPRITE_BANK, read_addr, &tile_attr);
+                    if (res != RECON_OK) break;
+                    read_addr = (uint16_t)(read_addr + 1u);
+
+                    res = rom_read_prg_byte(player->rom, SPRITE_BANK, read_addr, &b3);
+                    if (res != RECON_OK) break;
+                    read_addr = (uint16_t)(read_addr + 1u);
+                    int8_t rel_x = (int8_t)b3;
+
+                    int16_t sy = (int16_t)((int16_t)player->screen_y + (int16_t)rel_y);
+                    int16_t sx = 0;
+                    uint8_t out_attr = (uint8_t)((tile_attr & 0xFCu) | (player->player_id & 0x03u));
+
+                    if (player->facing_left) {
+                        out_attr = (uint8_t)(out_attr ^ 0x40u);
+                        sx = (int16_t)((int16_t)player->screen_x + (int16_t)(-8 - (int16_t)rel_x));
+                    } else {
+                        sx = (int16_t)((int16_t)player->screen_x + (int16_t)rel_x);
+                    }
+
+                    if (sy >= -16 && sy < 240 && sx >= -16 && sx < 256) {
+                        size_t oam_byte = oam_idx * 4u;
+                        oam_buffer[oam_byte + 0] = (uint8_t)sy;
+                        oam_buffer[oam_byte + 1] = tile_idx;
+                        oam_buffer[oam_byte + 2] = out_attr;
+                        oam_buffer[oam_byte + 3] = (uint8_t)sx;
+                        oam_idx++;
+                    }
+                    tiles_written++;
+                }
+                return;
+            }
+        }
+    }
+
+    /* Fallback mode if ROM is unlinked: 2 hardware 8x16 sprites */
     size_t oam_offset = oam_entry_start * 4u;
     if (oam_offset + 8u > 256u) return;
 
-    uint8_t attr = (uint8_t)(player->facing_left ? 0x40u : 0x00u);
-    attr = (uint8_t)(attr | (player->player_id & 0x03u));
+    uint8_t fallback_attr = (uint8_t)(player->facing_left ? 0x40u : 0x00u);
+    fallback_attr = (uint8_t)(fallback_attr | (player->player_id & 0x03u));
 
-    /* 8x16 sprite mode: upper tile is even index */
-    uint8_t tile_idx = 0x00;
+    uint8_t fallback_tile = 0x00u;
     if (player->water_state > 0) {
-        /* Water: half submerged, only upper half drawn */
+        fallback_tile = 0xDEu;
         oam_buffer[oam_offset + 0] = player->screen_y;
-        oam_buffer[oam_offset + 1] = tile_idx;
-        oam_buffer[oam_offset + 2] = attr;
+        oam_buffer[oam_offset + 1] = fallback_tile;
+        oam_buffer[oam_offset + 2] = fallback_attr;
         oam_buffer[oam_offset + 3] = player->screen_x;
     } else {
-        /* Upper 8x16 Torso */
+        if (player->is_jumping) {
+            fallback_tile = 0x44u;
+        } else if (player->is_crouching) {
+            fallback_tile = 0x9Cu;
+        }
+
         oam_buffer[oam_offset + 0] = player->screen_y;
-        oam_buffer[oam_offset + 1] = tile_idx;
-        oam_buffer[oam_offset + 2] = attr;
+        oam_buffer[oam_offset + 1] = fallback_tile;
+        oam_buffer[oam_offset + 2] = fallback_attr;
         oam_buffer[oam_offset + 3] = player->screen_x;
 
-        /* Lower 8x16 Legs */
         oam_buffer[oam_offset + 4] = (uint8_t)(player->screen_y + 16u);
-        oam_buffer[oam_offset + 5] = (uint8_t)(tile_idx + 2u);
-        oam_buffer[oam_offset + 6] = attr;
+        oam_buffer[oam_offset + 5] = (uint8_t)(fallback_tile + 2u);
+        oam_buffer[oam_offset + 6] = fallback_attr;
         oam_buffer[oam_offset + 7] = player->screen_x;
     }
 }

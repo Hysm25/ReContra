@@ -32,9 +32,8 @@ ReconResult collision_grid_unpack_screen(CollisionGrid *grid, const RomData *rom
         return RECON_ERR_OUT_OF_BOUNDS;
     }
 
-    uint16_t screen_tbl_addr = (uint16_t)(header->screen_ptr + (uint16_t)(screen_index * 2u));
-    uint16_t screen_data_addr = 0;
-    ReconResult res = rom_read_prg_word(rom, LEVEL_HEADER_BANK, screen_tbl_addr, &screen_data_addr);
+    uint8_t supertiles[64];
+    ReconResult res = level_decompress_screen_supertiles(rom, header, screen_index, supertiles, sizeof(supertiles));
     if (res != RECON_OK) {
         return res;
     }
@@ -48,10 +47,7 @@ ReconResult collision_grid_unpack_screen(CollisionGrid *grid, const RomData *rom
      */
     for (uint8_t sr = 0; sr < 7u; ++sr) {
         for (uint8_t sc = 0; sc < 8u; ++sc) {
-            uint16_t st_list_offset = (uint16_t)(sr * 8u + sc);
-            uint8_t supertile_id = 0;
-            res = rom_read_prg_byte(rom, LEVEL_HEADER_BANK, (uint16_t)(screen_data_addr + st_list_offset), &supertile_id);
-            if (res != RECON_OK) return res;
+            uint8_t supertile_id = supertiles[sr * 8u + sc];
 
             SupertileDef st_def;
             res = level_read_supertile(rom, header->supertile_ptr, supertile_id, &st_def);

@@ -121,3 +121,63 @@ ReconResult level_read_supertile(const RomData *rom, uint16_t supertile_base_ptr
 
     return RECON_OK;
 }
+
+ReconResult level_decompress_screen_supertiles(
+    const RomData *rom,
+    const LevelHeader *hdr,
+    uint8_t screen_index,
+    uint8_t *out_supertiles,
+    size_t out_size
+) {
+    if (rom == NULL || hdr == NULL || out_supertiles == NULL) {
+        return RECON_ERR_NULL_PTR;
+    }
+
+    size_t target_count = (hdr->scrolling_type == 1u) ? 64u : 56u;
+    if (out_size < target_count) {
+        return RECON_ERR_OUT_OF_BOUNDS;
+    }
+
+    uint16_t screen_tbl_addr = (uint16_t)(hdr->screen_ptr + (uint16_t)(screen_index * 2u));
+    uint16_t screen_data_addr = 0;
+    ReconResult res = rom_read_prg_word(rom, LEVEL_HEADER_BANK, screen_tbl_addr, &screen_data_addr);
+    if (res != RECON_OK) {
+        return res;
+    }
+
+    size_t out_idx = 0;
+    uint16_t in_offset = 0;
+
+    while (out_idx < target_count) {
+        uint8_t b = 0;
+        res = rom_read_prg_byte(rom, LEVEL_HEADER_BANK, (uint16_t)(screen_data_addr + in_offset), &b);
+        if (res != RECON_OK) {
+            return res;
+        }
+        in_offset = (uint16_t)(in_offset + 1u);
+
+        if (b < 0x80u) {
+            out_supertiles[out_idx++] = b;
+        } else if (b < 0xF0u) {
+            uint8_t count = (uint8_t)(b & 0x7Fu);
+            uint8_t val = 0;
+            res = rom_read_prg_byte(rom, LEVEL_HEADER_BANK, (uint16_t)(screen_data_addr + in_offset), &val);
+            if (res != RECON_OK) {
+                return res;
+            }
+            in_offset = (uint16_t)(in_offset + 1u);
+
+            for (uint8_t i = 0; i < count && out_idx < target_count; ++i) {
+                out_supertiles[out_idx++] = val;
+            }
+        } else {
+            uint8_t src_row = (uint8_t)(b & 0x0Fu);
+            size_t src_start = (size_t)src_row * 8u;
+            for (size_t i = 0; i < 8u && out_idx < target_count; ++i) {
+                out_supertiles[out_idx++] = out_supertiles[src_start + i];
+            }
+        }
+    }
+
+    return RECON_OK;
+}

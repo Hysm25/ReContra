@@ -87,6 +87,7 @@ typedef struct {
     uint8_t sprite_sequence;
 
     const uint8_t *aim_table; /* ROM PRG Bank 7 $D93A pointer */
+    const RomData *rom;        /* ROM pointer for dynamic sprite data */
 } Player;
 
 ReconResult player_init(Player *player, uint8_t player_id, const RomData *rom);

@@ -32,6 +32,7 @@ struct CliOptions {
     bool verify_hash = false;
     bool dump_info = false;
     bool authentic_flicker = false;
+    bool touch_controls = false;
 };
 
 /*
@@ -224,6 +225,7 @@ static void print_usage(const char *prog_name) {
     printf("  --verify-hash          Compute and verify deterministic simulation hash\n");
     printf("  --dump-info            Display ROM metadata, UNROM bank layout and checksums\n");
     printf("  --authentic-flicker    Enable authentic NES 8-sprite/scanline limit with $4C shift\n");
+    printf("  --touch                Force on-screen virtual touch controls overlay\n");
     printf("  --help, -h             Show this help information\n");
 }
 
@@ -241,6 +243,8 @@ static bool parse_cli_args(int argc, char **argv, CliOptions &opts) {
             opts.dump_info = true;
         } else if (arg == "--authentic-flicker") {
             opts.authentic_flicker = true;
+        } else if (arg == "--touch") {
+            opts.touch_controls = true;
         } else if (arg == "--frames") {
             if (i + 1 < argc) {
                 opts.frames = static_cast<uint32_t>(std::strtoul(argv[++i], nullptr, 10));
@@ -515,6 +519,9 @@ int main(int argc, char **argv) {
 #if defined(__ANDROID__)
     touch.enabled = true;
 #endif
+    if (opts.touch_controls) {
+        touch.enabled = true;
+    }
 
     bool running = true;
     SDL_Event event;
@@ -565,13 +572,20 @@ int main(int argc, char **argv) {
         }
 
         SDL_UpdateTexture(fb_texture, nullptr, ppu.framebuffer, DISPLAY_WIDTH * (int)sizeof(uint32_t));
+
+        // Explicitly clear entire render target to pure black (0, 0, 0, 255)
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
+
+        // Render game framebuffer with integer scaling inside logical presentation
+        SDL_SetRenderLogicalPresentation(renderer, DISPLAY_WIDTH, DISPLAY_HEIGHT, SDL_LOGICAL_PRESENTATION_INTEGER_SCALE);
         SDL_RenderTexture(renderer, fb_texture, nullptr, nullptr);
 
-        // Render virtual touch overlay if enabled
+        // Render virtual touch overlay across the full window resolution
         if (touch.enabled) {
+            SDL_SetRenderLogicalPresentation(renderer, 0, 0, SDL_LOGICAL_PRESENTATION_DISABLED);
             int win_w = 0, win_h = 0;
-            SDL_GetRenderOutputSize(renderer, &win_w, &win_h);
+            SDL_GetWindowSizeInPixels(window, &win_w, &win_h);
             touch.render(renderer, win_w, win_h);
         }
 

@@ -61,6 +61,27 @@ int main(int argc, char **argv) {
             SupertileDef def = {};
             TEST_CHECK(level_read_supertile(&rom, hdr.supertile_ptr, st, &def) == RECON_OK, "Read supertile");
         }
+
+        // Test RLE screen supertile decompression for Screen 0
+        uint8_t supertiles[64] = {0};
+        size_t expected_count = (hdr.scrolling_type == 1) ? 64 : 56;
+        TEST_CHECK(level_decompress_screen_supertiles(&rom, &hdr, 0, supertiles, sizeof(supertiles)) == RECON_OK, "Decompress Screen 0 supertiles");
+        if (lvl == 0) {
+            // Stage 1 Screen 0 authentic RLE layout check
+            TEST_CHECK(supertiles[0] == 0x21, "Stage 1 Screen 0 ST 0");
+            TEST_CHECK(supertiles[1] == 0x20, "Stage 1 Screen 0 ST 1");
+            TEST_CHECK(supertiles[2] == 0x21, "Stage 1 Screen 0 ST 2");
+            TEST_CHECK(supertiles[3] == 0x2B, "Stage 1 Screen 0 ST 3");
+            // Row 3 repeat count zeroes
+            for (size_t z = 25; z < 32; ++z) {
+                TEST_CHECK(supertiles[z] == 0x00, "Stage 1 Screen 0 Row 3 RLE zeroes");
+            }
+            // Row 6 water surface tiles
+            for (size_t w = 48; w < 52; ++w) {
+                TEST_CHECK(supertiles[w] == 0x10, "Stage 1 Screen 0 Row 6 water surface");
+            }
+            printf("  Stage 1 Screen 0 supertiles decompressed (%zu supertiles): RLE verified.\n", expected_count);
+        }
     }
 
     rom_free(&rom);
