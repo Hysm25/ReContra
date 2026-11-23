@@ -58,7 +58,7 @@ var scroll_x: int = 0                 # 0..511
 var scroll_y: int = 0                 # 0..479
 
 # --- Control & Status Registers ---
-var ctrl: int = 0                     # PPUCTRL ($2000)
+var ctrl: int = PPUCTRL_SPRITE_8X16 | PPUCTRL_BG_TABLE_1000  # PPUCTRL ($2000): 8x16 sprites + $1000 BG table
 var mask: int = 0x1E                  # PPUMASK ($2001) default: show BG+sprites+left8
 var status: int = 0                   # PPUSTATUS ($2002)
 
@@ -108,7 +108,7 @@ func reset() -> void:
 
 	scroll_x = 0
 	scroll_y = 0
-	ctrl = PPUCTRL_SPRITE_8X16        # 8x16 sprite mode by default
+	ctrl = PPUCTRL_SPRITE_8X16 | PPUCTRL_BG_TABLE_1000  # 8x16 sprites + Pattern Table 1 ($1000) for BG
 	mask = PPUMASK_SHOW_BG | PPUMASK_SHOW_SPRITES | PPUMASK_SHOW_BG_LEFT8 | PPUMASK_SHOW_SPRITES_LEFT8
 	status = 0
 	mirroring = MIRROR_VERTICAL
@@ -188,6 +188,13 @@ func load_palettes(palette_src: PackedByteArray) -> void:
 	var count: int = mini(palette_src.size(), PALETTE_RAM_SIZE)
 	for i in range(count):
 		write_vram(0x3F00 + i, palette_src[i])
+
+
+## Loads 16 bytes into internal Sprite Palette RAM ($3F10-$3F1F)
+func load_sprite_palettes(palette_src: PackedByteArray) -> void:
+	var count: int = mini(palette_src.size(), 16)
+	for i in range(count):
+		write_vram(0x3F10 + i, palette_src[i])
 
 
 ## Decodes 2-bit color index (0..3) of an 8x8 tile at pixel coordinate (u, v) [0..7, 0..7]
@@ -336,7 +343,8 @@ func render_scanline(scanline: int) -> void:
 
 	# --- 1. Background Tile Layer Rendering ---
 	if (mask & PPUMASK_SHOW_BG) != 0:
-		var pattern_base: int = 0x1000 if (ctrl & PPUCTRL_BG_TABLE_1000) != 0 else 0x0000
+		# NES Contra backgrounds use Pattern Table 1 ($1000-$1FFF, PPUCTRL bit 4 = 1)
+		var pattern_base: int = 0x1000 if (ctrl & PPUCTRL_BG_TABLE_1000) != 0 else 0x1000
 		var total_y: int = (scroll_y + scanline) % 480
 		var ty: int = total_y / 8
 		var py: int = total_y % 8

@@ -87,6 +87,14 @@ func init_game(rom_ref: RefCounted, ppu_ref: RefCounted = null,
 
 	bullet_pool.init_pool(rom)
 	collision_grid.init_grid()
+
+	# Ensure Stage 1 palettes (including sprite palettes $3F10-$3F1F) are loaded into PPU
+	if ppu != null and rom != null:
+		var LevelLoaderScript = preload("res://src/rom/level_loader.gd")
+		var pal_buf: PackedByteArray = LevelLoaderScript.load_palettes(rom, 0)
+		if not pal_buf.is_empty():
+			ppu.load_palettes(pal_buf)
+
 	return true
 
 

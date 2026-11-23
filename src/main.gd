@@ -56,8 +56,29 @@ func _setup_audio() -> void:
 func _setup_touch_controls() -> void:
 	if touch_controls == null:
 		return
-	var is_touch: bool = DisplayServer.is_touchscreen_available() or OS.has_feature("mobile") or OS.has_feature("web_android") or OS.has_feature("web_ios")
-	touch_controls.visible = is_touch
+	var show_touch: bool = DisplayServer.is_touchscreen_available() \
+		or OS.has_feature("mobile") \
+		or OS.has_feature("web_android") \
+		or OS.has_feature("web_ios")
+
+	for arg in OS.get_cmdline_args():
+		if arg == "--touch" or arg == "--show-touch":
+			show_touch = true
+			break
+	for arg in OS.get_cmdline_user_args():
+		if arg == "--touch" or arg == "--show-touch":
+			show_touch = true
+			break
+
+	touch_controls.visible = show_touch
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Toggle on-screen touch controls on desktop with T or F1 key
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_T or event.keycode == KEY_F1:
+			if touch_controls != null:
+				touch_controls.visible = not touch_controls.visible
 
 
 ## Discovers ROM in standard local paths
@@ -137,7 +158,9 @@ func _process(_delta: float) -> void:
 
 ## Gathers composite bitmask from keyboard, gamepad, and touch input
 func _gather_input() -> int:
-	var mask: int = touch_input_mask
+	var mask: int = 0
+	if touch_controls != null and touch_controls.visible:
+		mask |= touch_controls.get_input_mask()
 
 	# Directional buttons (Arrows / WASD / D-Pad)
 	if Input.is_key_pressed(KEY_RIGHT) or Input.is_key_pressed(KEY_D) or Input.is_joy_button_pressed(0, JOY_BUTTON_DPAD_RIGHT):

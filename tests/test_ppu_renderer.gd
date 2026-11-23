@@ -1,7 +1,7 @@
 class_name TestPpuRenderer
 extends RefCounted
 
-## Modular Test Suite: 2C02 PPU Software Framebuffer & OAM Sprite Engine (17 Tests)
+## Modular Test Suite: 2C02 PPU Software Framebuffer & OAM Sprite Engine (20 Tests)
 
 const PpuRendererScript = preload("res://src/render/ppu_renderer.gd")
 const LevelLoaderScript = preload("res://src/rom/level_loader.gd")
@@ -35,6 +35,9 @@ static func run(runner: Object, loader: RefCounted) -> bool:
 	var lvl1_hdr = LevelLoaderScript.load_level_header(loader, 0)
 	var lvl1_pal = LevelLoaderScript.load_palettes(loader, 0)
 	ppu.load_palettes(lvl1_pal)
+	runner.assert_test("Background Uses Pattern Table 1 ($1000)", (ppu.ctrl & PpuRendererScript.PPUCTRL_BG_TABLE_1000) != 0)
+	runner.assert_test("Stage 1 Sprite Palette 0 (Player 1 Skin/Blue) Loaded", ppu.read_vram(0x3F11) == 0x37 and ppu.read_vram(0x3F12) == 0x12)
+	runner.assert_test("Stage 1 Sprite Palette 1 (Player 2 Skin/Red) Loaded", ppu.read_vram(0x3F15) == 0x36 and ppu.read_vram(0x3F16) == 0x16)
 
 	var ok_nt0: bool = ppu.unpack_screen_horizontal(0, loader, lvl1_hdr, 0)
 	var ok_nt1: bool = ppu.unpack_screen_horizontal(1, loader, lvl1_hdr, 1)
@@ -99,7 +102,7 @@ static func run(runner: Object, loader: RefCounted) -> bool:
 	var fb_crc: int = RomLoaderScript.compute_crc32(ppu.framebuffer)
 	print("Rendered Framebuffer Deterministic CRC-32: 0x%08X" % fb_crc)
 	runner.assert_test("Deterministic Framebuffer CRC-32 Non-Zero", fb_crc != 0)
-	runner.assert_test("Deterministic Framebuffer CRC-32 Match (0x820ABB35)", fb_crc == 0x820ABB35, "Got: 0x%08X" % fb_crc)
+	runner.assert_test("Deterministic Framebuffer CRC-32 Match (0xE36185A8)", fb_crc == 0xE36185A8, "Got: 0x%08X" % fb_crc)
 
 	# Godot Image and ImageTexture Conversion
 	var fb_img: Image = ppu.get_framebuffer_image()

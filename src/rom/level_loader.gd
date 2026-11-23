@@ -160,6 +160,46 @@ static func load_palettes(loader: RefCounted, level: int) -> PackedByteArray:
 	return buf
 
 
+## Populates 16-byte sprite palette buffer ($3F10-$3F1F) for a level dynamically from Bank 7
+static func load_sprite_palettes(loader: RefCounted, level: int) -> PackedByteArray:
+	var hdr: LevelHeader = load_level_header(loader, level)
+	if hdr == null:
+		return PackedByteArray()
+
+	var buf: PackedByteArray = PackedByteArray()
+	buf.resize(16)
+	for p in range(4):
+		var sp_base: int = p * 4
+		buf[sp_base] = 0x0F
+		var sp_colors: PackedByteArray = get_palette_colors(loader, hdr.sprite_palette_indexes[p])
+		if sp_colors.size() < 3:
+			return PackedByteArray()
+		buf[sp_base + 1] = sp_colors[0]
+		buf[sp_base + 2] = sp_colors[1]
+		buf[sp_base + 3] = sp_colors[2]
+	return buf
+
+
+## Populates 16-byte background palette buffer ($3F00-$3F0F) for a level dynamically from Bank 7
+static func load_bg_palettes(loader: RefCounted, level: int) -> PackedByteArray:
+	var hdr: LevelHeader = load_level_header(loader, level)
+	if hdr == null:
+		return PackedByteArray()
+
+	var buf: PackedByteArray = PackedByteArray()
+	buf.resize(16)
+	for p in range(4):
+		var bg_base: int = p * 4
+		buf[bg_base] = 0x0F
+		var bg_colors: PackedByteArray = get_palette_colors(loader, hdr.bg_palette_indexes[p])
+		if bg_colors.size() < 3:
+			return PackedByteArray()
+		buf[bg_base + 1] = bg_colors[0]
+		buf[bg_base + 2] = bg_colors[1]
+		buf[bg_base + 3] = bg_colors[2]
+	return buf
+
+
 ## Returns the 32 level palette colors converted to 32-bit RGBA8 integers
 static func load_palettes_rgba8(loader: RefCounted, level: int) -> PackedInt64Array:
 	var raw_pal: PackedByteArray = load_palettes(loader, level)

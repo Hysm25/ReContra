@@ -8,7 +8,7 @@
 
 - **Phase Objective**: Migrate engine from C23/SDL3 to a clean-room Godot 4.3+ (GDScript) architecture.
 - **Current Milestone**: Godot 4 Clean-Room Migration Completed (Steps 1–5 / 100% Verified). Next Active Milestone: Milestone 6 — Stage 1 (Jungle) & Enemies.
-- **Status**: Implemented `src/game/collision.gd`, `src/game/player.gd`, `src/game/weapons.gd`, `src/game/game_loop.gd`, `src/main.tscn`, and `src/main.gd`. Headless verification test suite passing 187/187 assertions with deterministic state hash `0x811C9DC5` and audio hash `0x0C295808` across 6 modular test suites under `tests/` orchestrated by `tests/run_headless_tests.gd`.
+- **Status**: Implemented background Pattern Table 1 ($1000) base, dynamic sprite palettes from Bank 7, fractional viewport scaling, and multi-touch vector controls. Headless verification test suite passing 190/190 assertions with deterministic framebuffer CRC-32 `0xE36185A8`, state hash `0x811C9DC5`, and audio hash `0x0C295808` across 6 modular test suites under `tests/` orchestrated by `tests/run_headless_tests.gd`.
 
 ---
 
@@ -66,6 +66,12 @@
 
 ## 4. Session Change Log
 
+- **2026-11-23**: Fixed visual presentation and UI prior to Milestone 6:
+  1. Configured `PpuRenderer` background pattern table base to Pattern Table 1 (`$1000-$1FFF`, `PPUCTRL` bit 4 = 1), authenticating jungle trees, cliffs, bridges, and water rendering. Updated deterministic framebuffer CRC-32 to `0xE36185A8`.
+  2. Implemented dynamic sprite palette loading in `LevelLoader` (`load_sprite_palettes`, `load_bg_palettes`) and `GameLoop`, loading Player 1 skin/blue (`0x37`, `0x12`, `0x0F`) and Player 2 skin/red (`0x36`, `0x16`, `0x0F`) into `$3F10-$3F1F`.
+  3. Configured `project.godot` with `window/stretch/scale_mode="fractional"`, `aspect="keep"`, `mode="viewport"`, desktop window overrides (768x720), and touch mouse emulation.
+  4. Implemented `TouchControls` (`src/touch_controls.gd`, `src/main.tscn`, `src/main.gd`): multi-touch canvas overlay with semi-transparent vector D-Pad (bottom-left), A/B action buttons (bottom-right), and Select/Start buttons (bottom-center), active on mobile, with desktop preview toggle (`KEY_T`/`KEY_F1` or `--touch` flag).
+  5. Verified 100% test passage across all 190 assertions in headless mode.
 - **2026-11-23**: Reorganized repository architecture into modular layout standard for Godot engine projects:
   1. Relocated application source code under `src/` (`src/rom/`, `src/render/`, `src/audio/`, `src/game/`, `src/main.tscn`, `src/main.gd`), updating all `res://` resource paths and `project.godot` (`run/main_scene="res://src/main.tscn"`).
   2. Partitioned monolithic test suite into 6 single-responsibility test modules under `tests/` (`test_rom_loader.gd`, `test_chr_extractor.gd`, `test_level_loader.gd`, `test_ppu_renderer.gd`, `test_apu_sound.gd`, `test_gameplay_simulation.gd`) driven by unified runner `tests/run_headless_tests.gd` (and alias `tests/run_tests.gd`).

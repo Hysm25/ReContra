@@ -5,7 +5,7 @@ extends SceneTree
 ##   - test_rom_loader.gd: ROM Loader & UNROM Mapper 2 Architecture (30 tests)
 ##   - test_chr_extractor.gd: CHR Extractor & RLE Pattern Table Decompressor (16 tests)
 ##   - test_level_loader.gd: Level Loader, Palettes & Supertiles (70 tests)
-##   - test_ppu_renderer.gd: 2C02 PPU Software Framebuffer & OAM Sprite Engine (17 tests)
+##   - test_ppu_renderer.gd: 2C02 PPU Software Framebuffer & OAM Sprite Engine (20 tests)
 ##   - test_apu_sound.gd: Ricoh 2A03 APU Synthesizer & 6-Slot Audio Engine (23 tests)
 ##   - test_gameplay_simulation.gd: Gameplay Physics, Bullet Pool & GameLoop Simulation (31 tests)
 
