@@ -20,12 +20,17 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install NDK
+      - name: Accept Android SDK Licenses
         run: |
-          echo "y" | sdkmanager --install "ndk;27.1.12297006"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
+      - name: Setup SDL3 Android AAR
+        run: |
+          mkdir -p android/app/libs
+          curl -sSL "https://github.com/libsdl-org/SDL/releases/download/release-3.2.4/SDL3-devel-3.2.4-android.zip" -o /tmp/sdl3.zip
+          unzip -q -o /tmp/sdl3.zip "SDL3-3.2.4.aar" -d android/app/libs/
+          rm -f /tmp/sdl3.zip
+          ls -la android/app/libs/
 
       - name: Make gradlew executable
         run: chmod +x android/gradlew

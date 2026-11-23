@@ -7,26 +7,27 @@ def sdlAarName = "SDL3-${sdlVersion}.aar"
 def libsDir = file("libs")
 def sdlAarFile = file("libs/${sdlAarName}")
 
-// Ensure SDL3 Android development AAR is present
+// Auto-download SDL3 AAR fallback if not present in libs/
 if (!sdlAarFile.exists()) {
     libsDir.mkdirs()
     def zipUrl = "https://github.com/libsdl-org/SDL/releases/download/release-${sdlVersion}/SDL3-devel-${sdlVersion}-android.zip"
-    def tempZip = file("${buildDir}/SDL3-android.zip")
+    def tempZip = file("${layout.buildDirectory.get().asFile}/SDL3-android.zip")
     tempZip.parentFile.mkdirs()
     println "[ReContra] Downloading SDL3 Android development package from ${zipUrl}..."
     try {
-        new URL(zipUrl).withInputStream { i -> tempZip.withOutputStream { it << i } }
+        def conn = new URL(zipUrl).openConnection()
+        conn.setRequestProperty("User-Agent", "curl/7.88.1")
+        conn.inputStream.withStream { i -> tempZip.withOutputStream { it << i } }
         println "[ReContra] Extracting ${sdlAarName} to libs/..."
         copy {
-            from zipTree(tempZip).matching { include "**/${sdlAarName}" }
+            from zipTree(tempZip).matching { include "${sdlAarName}" }
             into libsDir
-            eachFile { it.path = it.name }
             includeEmptyDirs = false
         }
         tempZip.delete()
         println "[ReContra] SDL3 Android package ready."
     } catch (Exception e) {
-        println "[ReContra] Warning: Could not download SDL3 AAR automatically: " + e.getMessage()
+        println "[ReContra] Notice: SDL3 AAR can be placed directly at android/app/libs/${sdlAarName}: " + e.getMessage()
     }
 }
 

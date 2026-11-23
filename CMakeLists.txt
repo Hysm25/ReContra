@@ -9,6 +9,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Enable position independent code across all targets for shared library linkage
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 # Strictly enforce mandatory compiler warnings and safety
 add_compile_options(
     -Wall
@@ -57,12 +60,7 @@ target_include_directories(recontra_core PUBLIC src)
 if (ANDROID)
     # Android JNI shared library loaded by SDLActivity
     add_library(main SHARED src/main.cpp)
-    target_link_libraries(main PRIVATE recontra_core)
-    if (TARGET SDL3::SDL3-shared)
-        target_link_libraries(main PRIVATE SDL3::SDL3-shared)
-    elseif (TARGET SDL3::SDL3)
-        target_link_libraries(main PRIVATE SDL3::SDL3)
-    endif()
+    target_link_libraries(main PRIVATE recontra_core SDL3::SDL3)
 else()
     # Main Game Executable for Desktop / Headless
     add_executable(contra src/main.cpp)
