@@ -9,6 +9,7 @@
 #include "audio/sound_engine.h"
 #include "game/collision.h"
 #include "game/player.h"
+#include "game/bullet_pool.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -49,6 +50,7 @@ typedef struct {
 
     LevelHeader level_header;
     CollisionGrid collision_grid;
+    BulletPool bullet_pool;
 
     /* Players */
     Player players[MAX_PLAYERS];

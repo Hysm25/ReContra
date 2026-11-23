@@ -44,6 +44,7 @@ void player_spawn(Player *player, uint16_t spawn_x, uint16_t spawn_y) {
     player->edge_fall_code = 0;
 
     player->invincibility_timer = PLAYER_INVINCIBLE_RESPAWN;
+    player->m_fire_timer = 0;
     player->anim_timer = 0;
     player->anim_frame = 0;
     player->sprite_sequence = 0;

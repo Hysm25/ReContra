@@ -53,6 +53,7 @@ add_library(recontra_core STATIC
     src/audio/sound_engine.c
     src/game/collision.c
     src/game/player.c
+    src/game/bullet_pool.c
     src/game/game_runtime.c
 )
 target_include_directories(recontra_core PUBLIC src)
@@ -102,6 +103,10 @@ else()
     add_executable(test_game_physics tests/test_game_physics.cpp)
     target_link_libraries(test_game_physics PRIVATE recontra_core)
     add_test(NAME test_game_physics COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_game_physics> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
+
+    add_executable(test_bullet_pool tests/test_bullet_pool.cpp)
+    target_link_libraries(test_bullet_pool PRIVATE recontra_core)
+    add_test(NAME test_bullet_pool COMMAND ${TEST_RUNNER} $<TARGET_FILE:test_bullet_pool> "${CMAKE_SOURCE_DIR}/Contra (USA).nes")
 
     # Headless Deterministic Replay & Hash Verification Test
     add_test(

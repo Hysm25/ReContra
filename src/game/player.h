@@ -80,6 +80,7 @@ typedef struct {
     uint16_t invincibility_timer;
     uint8_t lives;
     uint8_t current_weapon; /* 0 = Standard Rifle */
+    uint8_t m_fire_timer;   /* Continuous fire accumulator ($9C/$9D) */
 
     uint8_t anim_timer;
     uint8_t anim_frame;

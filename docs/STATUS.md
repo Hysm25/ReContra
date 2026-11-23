@@ -4,11 +4,11 @@
 
 ---
 
-## 1. Current Phase: Phase 5 — Weapon System & Bullet Pool (`src/game/weapons/`)
+## 1. Current Phase: Phase 6 — Stage 1 (Jungle) & Enemies (`src/game/stages/`)
 
-- **Phase Objective**: Implement 16-slot Player Bullet Pool (`$0368`–`$04B7`), Standard Rifle, Machine Gun (`M`), Fireball (`F`), Spread Gun (`S`), Laser (`L`), Rapid Fire (`R`), and Barrier (`B`).
-- **Current Milestone**: Phase 5.1 — 16-Slot Bullet Pool & Standard Rifle / Spread Gun Trajectory Engine (READY).
-- **Status**: Phase 0 (Build & Harness), Phase 1 (ROM Loader & CHR RLE Decompressor), Phase 2 (2C02 PPU 256x240 Renderer & OAM Sprite Engine), Phase 3 (2A03 APU Synthesizer & 6-Slot Audio Command Engine), and Phase 4 (Physics, Player State Machine & Collision Grid) COMPLETED & 100% CTest Verified (7/7 passing).
+- **Phase Objective**: Implement Stage 1 horizontal scrolling progression, soldier generator (`SOLDIER_GENERATION_ROUTINE` `$79`), red turrets, snipers, flying falcons, exploding bridges, and Stage 1 defense wall boss.
+- **Current Milestone**: Phase 6.1 — Stage 1 Horizontal Scroller & Soldier Generation Routine (READY).
+- **Status**: Phase 0 (Build & Harness), Phase 1 (ROM Loader & CHR RLE Decompressor), Phase 2 (2C02 PPU 256x240 Renderer & OAM Sprite Engine), Phase 3 (2A03 APU Synthesizer & 6-Slot Audio Command Engine), Phase 4 (Physics, Player State Machine & Collision Grid), and Phase 5 (16-Slot Bullet Pool & Complete Weapon Subsystem) COMPLETED & 100% CTest Verified (8/8 passing).
 
 ---
 
@@ -70,14 +70,14 @@
 - [x] Build GameRuntime coordination engine for camera scrolling, dual-nametable streaming, and PPU OAM sprite rendering.
 
 ### Phase 5: Weapon System & Bullet Pool (`src/game/weapons/`)
-- [ ] Implement 16-slot Player Bullet Pool (`$0368`–`$04B7`).
-- [ ] Implement Standard Rifle weapon.
-- [ ] Implement `M` (Machine Gun) rapid-fire weapon.
-- [ ] Implement `F` (Fireball) swirling trajectory weapon with authentic offset lookup tables.
-- [ ] Implement `S` (Spread Gun) 5-way angled bullet fan.
-- [ ] Implement `L` (Laser Gun) 4-segment continuous destructive beam.
-- [ ] Implement `R` (Rapid Fire) upgrade modifier.
-- [ ] Implement `B` (Barrier / Falcon) invincibility power-up.
+- [x] Implement 16-slot Player Bullet Pool (`$0368`–`$04B7`).
+- [x] Implement Standard Rifle weapon.
+- [x] Implement `M` (Machine Gun) rapid-fire weapon.
+- [x] Implement `F` (Fireball) swirling trajectory weapon with authentic offset lookup tables.
+- [x] Implement `S` (Spread Gun) 5-way angled bullet fan.
+- [x] Implement `L` (Laser Gun) 4-segment continuous destructive beam.
+- [x] Implement `R` (Rapid Fire) upgrade modifier.
+- [x] Implement `B` (Barrier / Falcon) invincibility power-up.
 
 ### Phase 6: Stage 1 (Jungle) & Enemies (`src/game/stages/`)
 - [ ] Implement Stage 1 horizontal scrolling progression.
@@ -120,6 +120,7 @@
 ---
 
 ## 3. Session Change Log
+- **2026-11-23**: Completed Phase 5: implemented 16-slot Player Bullet Pool (`$0368`–`$04B7`), dynamic ROM Bank 6 table resolution for 19 trajectory, velocity, aim modifier, and sound/sprite tables (`$B55D`, `$B5A7`, `$B5AB`, `$B5FA`, `$B60E`, `$B6E9`, `$B719`, `$B749`, `$B779`, `$B817`, `$B891`, `$B89D`, `$B8AA`, `$B8BA`, `$B8FA`, `$B90A`, `$BA17`, `$BADE`, `$BAE2`). Built authentic Standard Rifle (max 4 bullets), Machine Gun (continuous stream with `m_fire_timer` burst/cooldown logic, max 6 bullets), Fireball (`F`) with non-linear 16-step circular swirling trajectory around center coordinates, Spread Gun (`S`) with 5-way angled bullet fan and travel distance-based sprite progression (`0x1F` -> `0x20` -> `0x21`), Laser Gun (`L`) with 4-segment continuous destructive beam and staggered delay routines (10, 7, 4, 1), Rapid Fire (`R`) velocity speed-up, and Barrier (`B`) invincibility protection with 8-frame tick cadence. Integrated into `GameRuntime` fixed-timestep simulation, OAM sprite rendering, and achieved 100% CTest pass rate (8/8 tests passing).
 - **2026-11-23**: Fixed Clang NDK `-Wsign-conversion` compilation errors in `src/audio/apu.c` by ensuring timer periods, DMC addresses/lengths, and LFSR feedback bitshifts use explicit unsigned promotion (`uint32_t`) with unsigned shift literals (`8u`, `6u`, `4u`, `14u`). Verified clean compilation across all source files under Clang with `-Wall -Wextra -Wpedantic -Wconversion -Werror`, and confirmed 100% desktop/headless CTest pass rate (7/7 tests passing).
 - **2026-11-23**: Added clean-room Android APK packaging (`arm64-v8a`) and automated GitHub Actions CI workflow (`.github/workflows/android.yml`). Configured `CMakeLists.txt` for conditional `libmain.so` shared library compilation with SDL3 Prefab support, built minimal self-contained `android/` Gradle project with automated SDL3 AAR fetching, implemented Android document picker (`ACTION_OPEN_DOCUMENT`) and multi-path ROM discovery, and created responsive on-screen virtual touch controls (D-Pad, A, B, Select, Start) with alpha-blended rendering.
 - **2026-11-23**: Completed Phase 4: implemented 128-byte background collision grid (`BG_COLLISION_DATA` `$0680`–`$06FF`), player state machine (`PLAYER_STATE` `$90`), 8-direction authentic aim table dynamically loaded from Bank 7 `$D93A`, parabolic jump physics (`-5.9375` px/frame initial impulse, `+0.1367` px/frame^2 gravity), Down + Jump platform drop-down with 12-frame floor bypass timer (`edge_fall_code`), water swimming/submerged diving, damage recoil arc, `GameRuntime` 60.0988 Hz fixed-timestep coordinator with dual-nametable horizontal scrolling, and 100% CTest verification pass (7/7 passing, 3600-frame hash `0xEFB99A22`).
