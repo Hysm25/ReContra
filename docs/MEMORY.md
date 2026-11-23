@@ -181,9 +181,9 @@ Direction Codes:
 - **Context**: Distributing proprietary Nintendo / Konami ROMs or extracted graphics/sound violates copyright.
 - **Decision**: The repository will contain zero `.nes` ROMs or extracted binary dumps. All assets (CHR tiles, palettes, sound bytecodes, DPCM samples) are ingested dynamically at runtime/build-time from a user-supplied ROM verified via SHA-256 (`8a6496924d54da80b72448ca33faec2c4a04d5ff645e54c8feefab7593c2a32c`).
 
-### ADR-002: Modern C23 / C++20 and SDL3 Stack
-- **Context**: Ensure low memory footprint, high portability across Linux desktop and Android PRoot, and modern audio-video stream management.
-- **Decision**: Use C23 for core decompresors/loaders and C++20 for engine subsystems. Use SDL3 for windowing, hardware-accelerated integer scaling, `SDL_AudioStream`, and `SDL_Gamepad`.
+### ADR-002: Prototype Verification Stack & Subsequent Godot 4 Migration
+- **Context**: The project began with an initial low-level C23/C++20/SDL3 exploratory harness to reverse-engineer and verify formulas, memory layouts, and timing directly against the disassembly.
+- **Decision**: Used C23 for core decompressors/loaders and SDL3 for initial prototype verification. To maximize cross-platform portability, high-level developer ergonomics, and native 2D engine facilities, the production architecture migrated to a clean-room Godot 4 (GDScript) foundation per ADR-016.
 
 ### ADR-003: Fixed-Timestep NTSC 60.0988 Hz Simulation
 - **Context**: Variable delta-time introduces physics drift, bullet desynchronization, and non-deterministic replays.
@@ -308,7 +308,3 @@ Direction Codes:
   4. Implemented generic `SoundEngine` (`scripts/audio/sound_engine.gd`) dynamically reading sound bytecode and lookup tables from Bank 1 (`$88E8` sound commands, `$88DB` DPCM descriptors, `$82CD` percussion triggers, `$8001` pulse volume envelopes, `$86D5` note periods) via `RomLoader`.
   5. Implemented 6 sound priority slots with full bytecode sequencer support (subroutine calls `$FD`, repeat loops `$FE`, stream terminators `$FF`, automatic decrescendo, and envelopes) and authentic priority arbitration (SFX Pulse 1 Slot 4 overrides BGM Pulse 1 Slot 0; SFX Noise Slot 5 overrides BGM Percussion Slot 3).
   6. Verified all 5 channels, Stage 1 BGM (`0x2A`), DPCM percussion sample `0x5B`, SFX priority arbitration, and deterministic 60-frame audio simulation CRC-32 match (`0x0C295808`) across 156 passing test assertions in `scripts/tests/run_headless_tests.gd`.
-
-
-
-
