@@ -136,7 +136,7 @@ void apu_write_register(Apu2A03 *apu, uint16_t reg, uint8_t val) {
         apu->pulse1.timer_period = (uint16_t)((apu->pulse1.timer_period & 0x0700u) | val);
         break;
     case APU_REG_PULSE1_TIMER_HI:
-        apu->pulse1.timer_period = (uint16_t)((apu->pulse1.timer_period & 0x00FFu) | ((uint16_t)(val & 0x07u) << 8));
+        apu->pulse1.timer_period = (uint16_t)((apu->pulse1.timer_period & 0x00FFu) | ((uint32_t)(val & 0x07u) << 8u));
         if (apu->pulse1.enabled) {
             apu->pulse1.length_counter = LENGTH_TABLE[(val >> 3) & 0x1Fu];
         }
@@ -162,7 +162,7 @@ void apu_write_register(Apu2A03 *apu, uint16_t reg, uint8_t val) {
         apu->pulse2.timer_period = (uint16_t)((apu->pulse2.timer_period & 0x0700u) | val);
         break;
     case APU_REG_PULSE2_TIMER_HI:
-        apu->pulse2.timer_period = (uint16_t)((apu->pulse2.timer_period & 0x00FFu) | ((uint16_t)(val & 0x07u) << 8));
+        apu->pulse2.timer_period = (uint16_t)((apu->pulse2.timer_period & 0x00FFu) | ((uint32_t)(val & 0x07u) << 8u));
         if (apu->pulse2.enabled) {
             apu->pulse2.length_counter = LENGTH_TABLE[(val >> 3) & 0x1Fu];
         }
@@ -179,7 +179,7 @@ void apu_write_register(Apu2A03 *apu, uint16_t reg, uint8_t val) {
         apu->triangle.timer_period = (uint16_t)((apu->triangle.timer_period & 0x0700u) | val);
         break;
     case APU_REG_TRI_TIMER_HI:
-        apu->triangle.timer_period = (uint16_t)((apu->triangle.timer_period & 0x00FFu) | ((uint16_t)(val & 0x07u) << 8));
+        apu->triangle.timer_period = (uint16_t)((apu->triangle.timer_period & 0x00FFu) | ((uint32_t)(val & 0x07u) << 8u));
         if (apu->triangle.enabled) {
             apu->triangle.length_counter = LENGTH_TABLE[(val >> 3) & 0x1Fu];
         }
@@ -215,10 +215,10 @@ void apu_write_register(Apu2A03 *apu, uint16_t reg, uint8_t val) {
         apu->dmc.output_level = (uint8_t)(val & 0x7Fu);
         break;
     case APU_REG_DMC_ADDR:
-        apu->dmc.sample_addr_cpu = (uint16_t)(0xC000u + ((uint16_t)val << 6));
+        apu->dmc.sample_addr_cpu = (uint16_t)(0xC000u + ((uint32_t)val << 6u));
         break;
     case APU_REG_DMC_LENGTH:
-        apu->dmc.sample_len_bytes = (uint16_t)(((uint16_t)val << 4) + 1u);
+        apu->dmc.sample_len_bytes = (uint16_t)(((uint32_t)val << 4u) + 1u);
         break;
 
     /* Status Control */
@@ -396,7 +396,7 @@ void apu_generate_samples(Apu2A03 *apu, float *out_buffer, size_t count) {
             while (apu->noise.timer_counter <= 0.0f) {
                 apu->noise.timer_counter += (float)apu->noise.timer_period;
                 uint16_t feedback = (uint16_t)((apu->noise.lfsr & 1u) ^ (apu->noise.mode ? ((apu->noise.lfsr >> 6) & 1u) : ((apu->noise.lfsr >> 1) & 1u)));
-                apu->noise.lfsr = (uint16_t)((apu->noise.lfsr >> 1) | (feedback << 14));
+                apu->noise.lfsr = (uint16_t)(((uint32_t)apu->noise.lfsr >> 1u) | ((uint32_t)feedback << 14u));
             }
             if (!(apu->noise.lfsr & 1u)) {
                 noise_out = apu->noise.constant_vol ? apu->noise.volume : apu->noise.envelope_counter;
