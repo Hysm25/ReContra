@@ -282,3 +282,12 @@ Direction Codes:
   3. Implemented strongly-typed generic `RomLoader` (`scripts/rom/rom_loader.gd`) enforcing UNROM Mapper 2 rules (128 KB PRG ROM, 8 banks, 0 CHR ROM), verifying SHA-256 and CRC-32 checksums against authentic reference releases, and translating CPU addresses ($8000-$BFFF switchable, $C000-$FFFF fixed Bank 7) with zero hardcoded game tables.
   4. Created headless verification suite (`scripts/tests/run_headless_tests.gd`) validating ROM ingestion, cryptographic verification, and bus mapping via `godot --headless --script scripts/tests/run_headless_tests.gd`.
 
+### ADR-017: Clean-Room CHR RLE Decompressor, Level Loader & Palette Subsystem Architecture
+- **Context**: Contra UNROM cartridges contain zero CHR ROM; all pattern table tiles are compressed with a custom RLE scheme across PRG banks 4, 5, 6, and 7, while level layouts, supertiles, and palettes are distributed across Banks 2, 3, and 7.
+- **Decision**:
+  1. Implemented generic `ChrExtractor` (`scripts/rom/chr_extractor.gd`) dynamically reading pointer tables from Bank 7 (`$C950` for 27 graphic stream descriptors and `$C8E3` for 13 level graphic sets). Supports all 4 RLE stream commands (`$FF` end, `$7F` PPU address jump, `< $7F` repeat run, `> $7F` literal stream) and horizontal bit reversal (`reverse_bits_u8`) into 8 KB CHR-RAM pattern tables and 16 KB full PPU address space.
+  2. Implemented generic `LevelLoader` (`scripts/rom/level_loader.gd`) parsing 32-byte Level Headers from Bank 2 (`$B319`), 4x4 supertiles from Bank 3, and 110 3-color palette sets from Bank 7 (`$D225`). Populates 32-byte palette RAM with universal background black (`0x0F`) and provides 2C02 NTSC master palette RGBA8 conversion.
+  3. Implemented authentic 3-case screen supertile decompression (`decompress_screen_supertiles`) matching disassembly Bank 7 algorithm (`< $80` literal, `$80..$EF` repeat, `>= $F0` row copy).
+  4. Expanded headless verification suite `scripts/tests/run_headless_tests.gd` covering all 27 individual graphic codes, 13 level graphic sets, 8 level headers, palettes, supertiles, and RLE screen decompression (116/116 tests passing).
+
+

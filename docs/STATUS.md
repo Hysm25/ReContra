@@ -4,11 +4,11 @@
 
 ---
 
-## 1. Current Phase: Godot 4 Migration — Step 1 of 5 (Clean-Room Engine Setup & RomLoader)
+## 1. Current Phase: Godot 4 Migration — Step 2 of 5 (CHR RLE Decompressor & Level Loader)
 
 - **Phase Objective**: Migrate engine from C23/SDL3 to a clean-room Godot 4 (GDScript) architecture.
-- **Current Milestone**: Step 1 of 5 — Clean-room Godot 4 Project Setup & UNROM Mapper 2 RomLoader (COMPLETED & 100% Verified).
-- **Status**: Legacy C/C++ CMake files removed; `project.godot` configured (256x240 integer viewport, nearest-neighbor); strongly-typed generic `RomLoader` and headless test suite passing 35/35 assertions.
+- **Current Milestone**: Step 2 of 5 — RLE CHR Decompressor & Level Loader (COMPLETED & 100% Verified).
+- **Status**: Implemented `scripts/rom/chr_extractor.gd` and `scripts/rom/level_loader.gd`; headless verification test suite passing 116/116 assertions.
 
 ---
 
@@ -19,7 +19,10 @@
   - [x] Configure `project.godot` (256x240 viewport, integer stretch, nearest-neighbor filter) and `.gitignore`.
   - [x] Implement generic, strongly-typed `scripts/rom/rom_loader.gd` (zero `TODO`s, iNES validation, SHA-256 / CRC-32 verification, `read_cpu` mapping).
   - [x] Create and pass headless verification test suite `scripts/tests/run_headless_tests.gd` (35/35 passing).
-- [ ] **Step 2: CHR Pattern Table RLE Decompressor & Palette Subsystem**
+- [x] **Step 2: CHR Pattern Table RLE Decompressor & Palette Subsystem**
+  - [x] Implement `scripts/rom/chr_extractor.gd` (Bank 7 pointers $C950/$C8E3, 4 RLE commands, bit-reversal, 8KB/16KB VRAM decompression).
+  - [x] Implement `scripts/rom/level_loader.gd` (Bank 2 $B319 headers, Bank 3 supertiles, Bank 7 $D225 palettes, 3-case screen RLE decompression).
+  - [x] Add comprehensive tests to `scripts/tests/run_headless_tests.gd` (116/116 passing).
 - [ ] **Step 3: PPU 256x240 Software / Tilemap Renderer & 8x16 OAM Sprite Engine**
 - [ ] **Step 4: 2A03 APU Synthesizer & 6-Slot Audio Engine**
 - [ ] **Step 5: Physics, Player State Machine & Deterministic Replay Verification**
@@ -27,6 +30,10 @@
 ---
 
 ## 3. Session Change Log
+- **2026-11-23**: Executed Step 2 of 5 for Godot 4 (GDScript) Clean-Room Migration:
+  1. Implemented `scripts/rom/chr_extractor.gd` resolving Bank 7 graphics pointer tables ($C950 and $C8E3), 4 RLE stream commands ($FF end, $7F PPU jump, < $7F run repeat, > $7F literal stream), and horizontal bit-reversal (`reverse_bits_u8`).
+  2. Implemented `scripts/rom/level_loader.gd` parsing 32-byte Level Headers from Bank 2 ($B319), 4x4 supertiles from Bank 3, and 110 3-color palette sets from Bank 7 ($D225), complete with 2C02 NTSC master palette RGBA8 conversion and authentic 3-case RLE screen supertile decompression.
+  3. Expanded `scripts/tests/run_headless_tests.gd` with 81 new unit tests covering all 27 individual graphic codes, 13 level graphic sets, 8 level headers, palettes, supertiles, and RLE screen decompression (116/116 assertions passing).
 - **2026-11-23**: Executed Step 1 of 5 for Godot 4 (GDScript) Clean-Room Migration:
   1. Purged old CMake build files, C/C++ sources (`src/`), unit tests (`tests/`), CI workflows (`.github/`), and Android packaging (`android/`).
   2. Created `project.godot` with 256x240 native viewport, integer scaling, and nearest-neighbor texture filtering; updated `.gitignore` with `.godot/`, `*.nes`, and `build/`.
